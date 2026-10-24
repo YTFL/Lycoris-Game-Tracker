@@ -233,7 +233,7 @@ flutter test
    ```bash
    git push origin feat/your-feature-name
    ```
-3. **Open a Pull Request**: Submit your PR against the `main` branch of `YTFL/Lycoris`.
+3. **Open a Pull Request**: Submit your PR against the `main` branch of `YTFL/Lycoris-Game-Tracker`.
 4. **Fill Out the PR Template**: Complete all sections of the pull request template:
    - Provide a clear summary and motivation.
    - Reference related issues (`Closes #123`).

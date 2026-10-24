@@ -113,7 +113,7 @@ Lycoris operates under a strict data sovereignty model: **your data belongs excl
 
 ## Quick Start for Players
 
-1. **Download the APK**: Download the latest release APK from the [Releases](https://github.com/YTFL/Lycoris/releases) page and install it on your Android device.
+1. **Download the APK**: Download the latest release APK from the [Releases](https://github.com/YTFL/Lycoris-Game-Tracker/releases) page and install it on your Android device.
 2. **Catalog Your Games**: Tap **Add Game** to search over 300,000+ titles via the IGDB database, or tap **Manual Entry** to add retro ROMs, homebrew, or unlisted indie games.
 3. **Log Playtime and Spend**: Enter your purchase price, storefront, and hours played to instantly calculate your cost-per-hour return.
 4. **(Optional) Enable Google Drive Sync**:
@@ -132,8 +132,8 @@ Lycoris operates under a strict data sovereignty model: **your data belongs excl
 
 ### 1. Clone the Repository
 ```bash
-git clone https://github.com/YTFL/Lycoris.git
-cd Lycoris
+git clone https://github.com/YTFL/Lycoris-Game-Tracker.git
+cd Lycoris-Game-Tracker
 flutter pub get
 ```
 

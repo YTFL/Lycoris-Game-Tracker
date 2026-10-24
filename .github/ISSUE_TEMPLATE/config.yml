@@ -1,11 +1,11 @@
 blank_issues_enabled: false
 contact_links:
   - name: GitHub Discussions
-    url: https://github.com/YTFL/Lycoris/discussions
+    url: https://github.com/YTFL/Lycoris-Game-Tracker/discussions
     about: Ask questions, share your gaming tier lists, or discuss ideas with the community.
   - name: Documentation & Privacy
-    url: https://github.com/YTFL/Lycoris#privacy--data-sovereignty
+    url: https://github.com/YTFL/Lycoris-Game-Tracker#privacy--data-sovereignty
     about: Read our data sovereignty guarantees and Google Drive Limited Use policy.
   - name: Security Vulnerability Disclosure
-    url: https://github.com/YTFL/Lycoris/security/policy
+    url: https://github.com/YTFL/Lycoris-Game-Tracker/security/policy
     about: Privately report a security issue or vulnerability.

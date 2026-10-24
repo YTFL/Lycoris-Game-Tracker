@@ -54,4 +54,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Standardized GitHub issue templates for bug reports and feature requests.
   - Structured GitHub pull request template.
 
-[1.0.0]: https://github.com/YTFL/Lycoris/releases/tag/v1.0.0
+[1.0.0]: https://github.com/YTFL/Lycoris-Game-Tracker/releases/tag/v1.0.0
