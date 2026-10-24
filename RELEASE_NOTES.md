@@ -1,23 +1,12 @@
 # Lycoris Version 1.0.0 Release Notes
 
-**Release Date:** October 2026  
+**Release Date:** October 24, 2026  
 **Milestone:** v1.0.0 Initial Production Release  
 **License:** GNU Affero General Public License v3.0 (AGPL-3.0)  
 
 ---
 
-## Executive Summary
-
-Lycoris v1.0.0 marks the initial production release of the offline-first personal gaming library, backlog manager, and financial Return on Investment (ROI) tracker. Engineered specifically for sovereign gamers who maintain gaming libraries across fragmented platforms, Lycoris answers two fundamental questions:
-
-1. *How much capital have I invested in this game across all storefronts and microtransactions?*
-2. *What is my actual cost-per-hour entertainment value based on verified playtime?*
-
-Unlike cloud services that require account registration, collect user telemetry, or sell gaming patterns, Lycoris guarantees total data sovereignty. All data remains stored locally on your device in high-performance NoSQL storage, with optional end-to-end synchronization to your private Google Drive vault using restricted app-specific scopes.
-
----
-
-## Feature-by-Feature Catalog
+## Features
 
 ### 1. Library & Catalog Management
 

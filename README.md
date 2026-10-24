@@ -183,6 +183,7 @@ The test suite covers unit and widget tests for playtime normalization, currency
 ## Documentation & Community
 
 - [Comprehensive Release Notes (v1.0.0)](RELEASE_NOTES.md) — Exhaustive documentation of all features and architectural capabilities.
+- [Changelog](CHANGELOG.md) — Chronological release history and version notes.
 - [Contribution Guidelines](CONTRIBUTING.md) — Development setup, architecture patterns, code style, and PR process.
 - [Issue Templates](.github/ISSUE_TEMPLATE/) — Templates for bug reports and feature requests.
 - [Product Website](docs/index.html) — Feature showcases, interactive preview, and live ROI calculator.
