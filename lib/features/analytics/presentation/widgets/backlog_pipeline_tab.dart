@@ -38,7 +38,7 @@ class BacklogPipelineTab extends StatelessWidget {
                 value: '${state.completionRate.toStringAsFixed(1)}%',
                 subtitle: 'Completed & Mastered titles',
                 icon: Icons.task_alt_rounded,
-                accentColor: const Color(0xFF10B981), // Emerald
+                accentColor: colorScheme.primary,
               ),
             ),
             const SizedBox(width: 12),
@@ -47,12 +47,72 @@ class BacklogPipelineTab extends StatelessWidget {
                 context: context,
                 title: 'Backlog Sunk Capital',
                 value: CurrencyHelper.format(state.backlogCapital, currencyCode: state.primaryCurrency),
-                subtitle: 'Locked in unplayed games',
+                subtitle: '${state.backlogCapitalPercent.toStringAsFixed(0)}% of total budget',
                 icon: Icons.inventory_2_outlined,
                 accentColor: colorScheme.secondary,
               ),
             ),
           ],
+        ),
+
+        const SizedBox(height: 12),
+
+        // Direct Game Split: Played vs. Unplayed Ratio Banner
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(
+            color: colorScheme.surfaceContainerHigh,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: colorScheme.outlineVariant.withAlpha(50)),
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(7),
+                decoration: BoxDecoration(
+                  color: colorScheme.tertiary.withAlpha(25),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(Icons.pie_chart_rounded, size: 16, color: colorScheme.tertiary),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Played vs. Unplayed Ratio',
+                      style: theme.textTheme.labelMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                        color: colorScheme.onSurface,
+                      ),
+                    ),
+                    Text(
+                      '${state.playedGamesCount} played titles • ${state.unplayedGamesCount} unplayed backlog titles',
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: colorScheme.surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: colorScheme.outlineVariant.withAlpha(60)),
+                ),
+                child: Text(
+                  '${state.playedGamesCount} / ${state.unplayedGamesCount}',
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                    color: colorScheme.onSurface,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
 
         const SizedBox(height: 16),
@@ -347,7 +407,7 @@ class BacklogPipelineTab extends StatelessWidget {
       color: colorScheme.surfaceContainer,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: Colors.redAccent.withAlpha(50)),
+        side: BorderSide(color: colorScheme.error.withAlpha(60)),
       ),
       child: Padding(
         padding: const EdgeInsets.all(18),
@@ -359,10 +419,10 @@ class BacklogPipelineTab extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.all(7),
                   decoration: BoxDecoration(
-                    color: Colors.redAccent.withAlpha(25),
+                    color: colorScheme.error.withAlpha(25),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: const Icon(Icons.cancel_outlined, size: 18, color: Colors.redAccent),
+                  child: Icon(Icons.cancel_outlined, size: 18, color: colorScheme.error),
                 ),
                 const SizedBox(width: 10),
                 Expanded(
@@ -399,7 +459,7 @@ class BacklogPipelineTab extends StatelessWidget {
                         '${state.abandonedHours.toStringAsFixed(1)} hrs',
                         style: theme.textTheme.titleMedium?.copyWith(
                           fontWeight: FontWeight.w900,
-                          color: Colors.redAccent,
+                          color: colorScheme.error,
                         ),
                       ),
                       Text(
@@ -417,7 +477,7 @@ class BacklogPipelineTab extends StatelessWidget {
                         CurrencyHelper.format(state.abandonedSpend, currencyCode: state.primaryCurrency),
                         style: theme.textTheme.titleMedium?.copyWith(
                           fontWeight: FontWeight.w900,
-                          color: Colors.redAccent,
+                          color: colorScheme.error,
                         ),
                       ),
                       Text(
@@ -435,7 +495,7 @@ class BacklogPipelineTab extends StatelessWidget {
                         '${state.abandonedHoursTaxPercent.toStringAsFixed(1)}%',
                         style: theme.textTheme.titleMedium?.copyWith(
                           fontWeight: FontWeight.w900,
-                          color: Colors.redAccent,
+                          color: colorScheme.error,
                         ),
                       ),
                       Text(

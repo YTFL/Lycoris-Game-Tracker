@@ -27,7 +27,7 @@ class RatingJoyTab extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       children: [
-        // 1. Rating Summary & Dynamic Thresholds Banner
+        // 1. Rating Summary KPI Row
         Row(
           children: [
             Expanded(
@@ -39,7 +39,7 @@ class RatingJoyTab extends StatelessWidget {
                     : 'N/A',
                 subtitle: 'Across ${state.totalRatedGames} rated titles',
                 icon: Icons.star_half_rounded,
-                accentColor: Colors.amber,
+                accentColor: colorScheme.primary,
               ),
             ),
             const SizedBox(width: 12),
@@ -52,48 +52,49 @@ class RatingJoyTab extends StatelessWidget {
                     : 'N/A',
                 subtitle: 'Library rating midpoint',
                 icon: Icons.grade_rounded,
+                accentColor: colorScheme.secondary,
+              ),
+            ),
+          ],
+        ),
+
+        const SizedBox(height: 12),
+
+        // 2. Dynamic Threshold Bento Cards (replacing split text banner)
+        Row(
+          children: [
+            Expanded(
+              child: _buildStatCard(
+                context: context,
+                title: 'Playtime Divider',
+                value: '${state.hoursThreshold.toStringAsFixed(1)} hrs',
+                subtitle: 'Median library playtime threshold',
+                icon: Icons.schedule_rounded,
+                accentColor: colorScheme.tertiary,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _buildStatCard(
+                context: context,
+                title: 'Rating Divider',
+                value: '${state.ratingThreshold.toStringAsFixed(1)} ★',
+                subtitle: 'Median library rating threshold',
+                icon: Icons.tune_rounded,
                 accentColor: colorScheme.primary,
               ),
             ),
           ],
         ),
 
-        const SizedBox(height: 10),
-
-        // Dynamic formula explanation pill
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-          decoration: BoxDecoration(
-            color: colorScheme.surfaceContainerHigh,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: colorScheme.outlineVariant.withAlpha(60)),
-          ),
-          child: Row(
-            children: [
-              Icon(Icons.tune_rounded, size: 16, color: colorScheme.primary),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  'Dynamic Quadrant Split: Median Playtime (${state.hoursThreshold.toStringAsFixed(1)} hrs) & Median Rating (${state.ratingThreshold.toStringAsFixed(1)}★). Scales neutrally with your library habits.',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                    fontSize: 11,
-                    height: 1.3,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-
         const SizedBox(height: 16),
 
-        // 2. The Golden Quadrant Matrix Card
+        // 3. The Satisfaction Quadrant Matrix Card (Redesigned)
         _buildGoldenQuadrantCard(context),
 
         const SizedBox(height: 16),
 
-        // 3. Joy-Per-Dollar (Happiness ROI) Leaderboard
+        // 4. Joy-Per-Dollar (Happiness ROI) Leaderboard (Normalized Colors)
         _buildJoyPerDollarCard(context),
 
         const SizedBox(height: 32),
@@ -179,9 +180,9 @@ class RatingJoyTab extends StatelessWidget {
 
     final categoryColors = {
       QuadrantCategory.timelessMasterpiece: colorScheme.primary,
-      QuadrantCategory.sweetShortGem: const Color(0xFF10B981), // Emerald
-      QuadrantCategory.timeTrap: const Color(0xFFF59E0B), // Amber
-      QuadrantCategory.earlyDrop: const Color(0xFF6B7280), // Slate
+      QuadrantCategory.sweetShortGem: colorScheme.secondary,
+      QuadrantCategory.timeTrap: colorScheme.tertiary,
+      QuadrantCategory.earlyDrop: colorScheme.onSurfaceVariant,
     };
 
     final categoryIcons = {
@@ -219,7 +220,7 @@ class RatingJoyTab extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'The Golden Quadrant',
+                        'Satisfaction Matrix',
                         style: theme.textTheme.titleMedium?.copyWith(
                           fontWeight: FontWeight.w700,
                           color: colorScheme.onSurface,
@@ -246,39 +247,50 @@ class RatingJoyTab extends StatelessWidget {
 
               return Container(
                 margin: const EdgeInsets.only(bottom: 12),
-                padding: const EdgeInsets.all(12),
+                padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
-                  color: colorScheme.surfaceContainerLow,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: color.withAlpha(40)),
+                  color: colorScheme.surfaceContainerHigh,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: colorScheme.outlineVariant.withAlpha(40),
+                    width: 0.8,
+                  ),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
                       children: [
-                        Icon(icon, size: 16, color: color),
+                        Container(
+                          padding: const EdgeInsets.all(5),
+                          decoration: BoxDecoration(
+                            color: color.withAlpha(25),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Icon(icon, size: 14, color: color),
+                        ),
                         const SizedBox(width: 8),
                         Text(
                           cat.title,
                           style: theme.textTheme.bodyMedium?.copyWith(
                             fontWeight: FontWeight.w800,
-                            color: color,
+                            color: colorScheme.onSurface,
                           ),
                         ),
                         const Spacer(),
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                           decoration: BoxDecoration(
-                            color: color.withAlpha(20),
+                            color: colorScheme.surfaceContainerHighest,
                             borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: colorScheme.outlineVariant.withAlpha(60)),
                           ),
                           child: Text(
                             '${gamesInCat.length}',
                             style: TextStyle(
                               fontSize: 11,
                               fontWeight: FontWeight.w800,
-                              color: color,
+                              color: colorScheme.onSurface,
                             ),
                           ),
                         ),
@@ -314,9 +326,11 @@ class RatingJoyTab extends StatelessWidget {
                             child: Container(
                               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                               decoration: BoxDecoration(
-                                color: colorScheme.surfaceContainerHigh,
+                                color: colorScheme.surfaceContainerLowest,
                                 borderRadius: BorderRadius.circular(8),
-                                border: Border.all(color: colorScheme.outlineVariant.withAlpha(40)),
+                                border: Border.all(
+                                  color: colorScheme.outlineVariant.withAlpha(50),
+                                ),
                               ),
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
@@ -333,11 +347,11 @@ class RatingJoyTab extends StatelessWidget {
                                       ),
                                     ),
                                   ),
-                                  const SizedBox(width: 6),
+                                  const SizedBox(width: 8),
                                   Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
                                     decoration: BoxDecoration(
-                                      color: color.withAlpha(25),
+                                      color: color.withAlpha(20),
                                       borderRadius: BorderRadius.circular(4),
                                     ),
                                     child: Text(
@@ -387,10 +401,10 @@ class RatingJoyTab extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.all(7),
                   decoration: BoxDecoration(
-                    color: Colors.amber.withAlpha(25),
+                    color: colorScheme.primary.withAlpha(25),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: const Icon(Icons.sentiment_very_satisfied_rounded, size: 18, color: Colors.amber),
+                  child: Icon(Icons.sentiment_very_satisfied_rounded, size: 18, color: colorScheme.primary),
                 ),
                 const SizedBox(width: 10),
                 Expanded(
@@ -444,8 +458,8 @@ class RatingJoyTab extends StatelessWidget {
                         children: [
                           Text(
                             '#${index + 1}',
-                            style: const TextStyle(
-                              color: Colors.amber,
+                            style: TextStyle(
+                              color: colorScheme.primary,
                               fontWeight: FontWeight.w900,
                               fontSize: 13,
                             ),
@@ -474,17 +488,24 @@ class RatingJoyTab extends StatelessWidget {
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                             decoration: BoxDecoration(
-                              color: Colors.amber.withAlpha(20),
+                              color: colorScheme.surfaceContainerHighest,
                               borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: Colors.amber.withAlpha(70)),
+                              border: Border.all(color: colorScheme.outlineVariant.withAlpha(60)),
                             ),
-                            child: Text(
-                              '${entry.rating.toStringAsFixed(1)} ★',
-                              style: const TextStyle(
-                                color: Colors.amber,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w800,
-                              ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.star_rounded, size: 12, color: colorScheme.primary),
+                                const SizedBox(width: 3),
+                                Text(
+                                  entry.rating.toStringAsFixed(1),
+                                  style: TextStyle(
+                                    color: colorScheme.onSurface,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         ],

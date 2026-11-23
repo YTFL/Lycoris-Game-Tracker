@@ -4,10 +4,11 @@ import '../../../../core/utils/currency_helper.dart';
 import '../../../sync/presentation/controllers/settings_notifier.dart';
 import '../../../tracker/domain/models/game_entry.dart';
 import '../../../tracker/domain/models/game_status.dart';
+import '../../../tracker/domain/models/storefront.dart';
 import '../../../tracker/presentation/controllers/library_notifier.dart';
 import 'analytics_state.dart';
 
-final analyticsTabProvider = StateProvider<AnalyticsTab>((ref) => AnalyticsTab.playtimeHabits);
+final analyticsTabProvider = StateProvider<AnalyticsTab>((ref) => AnalyticsTab.overview);
 
 final analyticsStateProvider = Provider<AnalyticsState>((ref) {
   final libraryState = ref.watch(libraryNotifierProvider);
@@ -265,7 +266,40 @@ class AnalyticsEngine {
       nextQuickWin = backlogGames.first;
     }
 
-    // 6. Superlatives & Accolades
+    // 6. Storefront Breakdown & Top Storefront
+    final storefrontCounts = <Storefront, int>{};
+    final storefrontSpend = <Storefront, double>{};
+    final storefrontMinutes = <Storefront, int>{};
+
+    for (final game in games) {
+      final sf = game.storefront;
+      storefrontCounts[sf] = (storefrontCounts[sf] ?? 0) + 1;
+      storefrontSpend[sf] = (storefrontSpend[sf] ?? 0.0) + convertGameSpend(game);
+      storefrontMinutes[sf] = (storefrontMinutes[sf] ?? 0) + game.totalMinutesPlayed;
+    }
+
+    StorefrontAnalyticsData? topStorefront;
+    if (storefrontCounts.isNotEmpty) {
+      final sortedStorefronts = storefrontCounts.keys.toList()
+        ..sort((a, b) {
+          final cmp = (storefrontCounts[b] ?? 0).compareTo(storefrontCounts[a] ?? 0);
+          if (cmp != 0) return cmp;
+          return (storefrontSpend[b] ?? 0.0).compareTo(storefrontSpend[a] ?? 0.0);
+        });
+      final bestSf = sortedStorefronts.first;
+      topStorefront = StorefrontAnalyticsData(
+        storefront: bestSf,
+        count: storefrontCounts[bestSf] ?? 0,
+        totalSpend: storefrontSpend[bestSf] ?? 0.0,
+        totalMinutes: storefrontMinutes[bestSf] ?? 0,
+      );
+    }
+
+    final backlogCapitalPercent = totalInvested > 0 ? (backlogCapital / totalInvested) * 100.0 : 0.0;
+    final playedGamesCount = playedGames.length;
+    final unplayedGamesCount = games.length - playedGamesCount;
+
+    // 7. Superlatives & Accolades
     // The Infinite Value: lowest cost/hr with totalSpent > 0 and playtime > 0
     final validRoiGames = games.where((g) => g.totalMinutesPlayed > 0 && g.totalSpent > 0 && g.costPerHour != null).toList()
       ..sort((a, b) => normalizedCostPerHour(a).compareTo(normalizedCostPerHour(b)));
@@ -318,6 +352,10 @@ class AnalyticsEngine {
       averagePlaytimeHours: averagePlaytimeHours,
       medianPlaytimeHours: medianPlaytimeHours,
       top3GamesSharePercent: top3GamesSharePercent,
+      playedGamesCount: playedGamesCount,
+      unplayedGamesCount: unplayedGamesCount,
+      backlogCapitalPercent: backlogCapitalPercent,
+      topStorefront: topStorefront,
       playtimeBuckets: playtimeBuckets,
       topGenres: topGenres,
       medianRating: medianRating,

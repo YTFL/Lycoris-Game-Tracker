@@ -18,6 +18,66 @@ class PlaytimeHabitsTab extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       children: [
+        // 0. Lifetime Playtime Banner
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(
+            color: colorScheme.surfaceContainerHigh,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: colorScheme.outlineVariant.withAlpha(50)),
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: colorScheme.primary.withAlpha(25),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(Icons.timer_rounded, size: 18, color: colorScheme.primary),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Lifetime Playtime Tracked',
+                      style: theme.textTheme.labelMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                        color: colorScheme.onSurface,
+                      ),
+                    ),
+                    Text(
+                      '${state.totalHoursPlayed.toStringAsFixed(1)} total hours • ${state.totalDaysPlayed.toStringAsFixed(1)} full 24h days',
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: colorScheme.surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: colorScheme.outlineVariant.withAlpha(60)),
+                ),
+                child: Text(
+                  '${state.totalHoursPlayed.toStringAsFixed(0)}h',
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                    color: colorScheme.primary,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        const SizedBox(height: 12),
+
         // 1. Central Tendency KPI Row
         Row(
           children: [
@@ -159,11 +219,11 @@ class PlaytimeHabitsTab extends StatelessWidget {
     final colorScheme = theme.colorScheme;
 
     final tierColors = [
-      const Color(0xFF38BDF8), // Light Sky
-      const Color(0xFF34D399), // Emerald
-      const Color(0xFFFBBF24), // Amber
-      const Color(0xFFF97316), // Orange
-      const Color(0xFFEC4899), // Pink / Violet
+      colorScheme.primary,
+      colorScheme.secondary,
+      colorScheme.tertiary,
+      colorScheme.primary.withAlpha(180),
+      colorScheme.secondary.withAlpha(180),
     ];
 
     final totalPlayedGames = state.playtimeBuckets.fold<int>(0, (sum, b) => sum + b.count);
@@ -396,21 +456,21 @@ class PlaytimeHabitsTab extends StatelessWidget {
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                               decoration: BoxDecoration(
-                                color: Colors.amber.withAlpha(30),
+                                color: colorScheme.surfaceContainerHighest,
                                 borderRadius: BorderRadius.circular(6),
-                                border: Border.all(color: Colors.amber.withAlpha(80)),
+                                border: Border.all(color: colorScheme.outlineVariant.withAlpha(60)),
                               ),
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  const Icon(Icons.star_rounded, size: 12, color: Colors.amber),
+                                  Icon(Icons.star_rounded, size: 12, color: colorScheme.primary),
                                   const SizedBox(width: 3),
                                   Text(
                                     genre.averageRating!.toStringAsFixed(1),
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                       fontSize: 11,
                                       fontWeight: FontWeight.w800,
-                                      color: Colors.amber,
+                                      color: colorScheme.primary,
                                     ),
                                   ),
                                 ],

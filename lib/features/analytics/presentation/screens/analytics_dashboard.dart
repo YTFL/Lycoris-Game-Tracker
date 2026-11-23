@@ -6,6 +6,7 @@ import '../controllers/analytics_notifier.dart';
 import '../controllers/analytics_state.dart';
 import '../widgets/analytics_tab_bar.dart';
 import '../widgets/backlog_pipeline_tab.dart';
+import '../widgets/overview_tab.dart';
 import '../widgets/playtime_habits_tab.dart';
 import '../widgets/rating_joy_tab.dart';
 import '../widgets/superlatives_tab.dart';
@@ -17,13 +18,41 @@ class AnalyticsDashboard extends ConsumerStatefulWidget {
   ConsumerState<AnalyticsDashboard> createState() => _AnalyticsDashboardState();
 }
 
-class _AnalyticsDashboardState extends ConsumerState<AnalyticsDashboard> {
+class _AnalyticsDashboardState extends ConsumerState<AnalyticsDashboard>
+    with SingleTickerProviderStateMixin {
+  late final TabController _tabController;
+
   @override
   void initState() {
     super.initState();
+    final currentTab = ref.read(analyticsTabProvider);
+    _tabController = TabController(
+      length: AnalyticsTab.values.length,
+      vsync: this,
+      initialIndex: AnalyticsTab.values.indexOf(currentTab).clamp(0, AnalyticsTab.values.length - 1),
+    );
+    _tabController.addListener(_onTabChanged);
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(exchangeRatesNotifierProvider.notifier).checkAndAutoFetch();
     });
+  }
+
+  void _onTabChanged() {
+    if (_tabController.indexIsChanging) {
+      ref.read(analyticsTabProvider.notifier).state =
+          AnalyticsTab.values[_tabController.index];
+    } else if (!_tabController.indexIsChanging) {
+      ref.read(analyticsTabProvider.notifier).state =
+          AnalyticsTab.values[_tabController.index];
+    }
+  }
+
+  @override
+  void dispose() {
+    _tabController.removeListener(_onTabChanged);
+    _tabController.dispose();
+    super.dispose();
   }
 
   @override
@@ -32,6 +61,12 @@ class _AnalyticsDashboardState extends ConsumerState<AnalyticsDashboard> {
     final colorScheme = theme.colorScheme;
     final state = ref.watch(analyticsStateProvider);
     final primaryCurrency = state.primaryCurrency;
+
+    // Keep TabController in sync if state changed externally
+    final expectedIndex = AnalyticsTab.values.indexOf(state.currentTab);
+    if (!_tabController.indexIsChanging && _tabController.index != expectedIndex) {
+      _tabController.animateTo(expectedIndex);
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -95,6 +130,9 @@ class _AnalyticsDashboardState extends ConsumerState<AnalyticsDashboard> {
             ),
           ),
         ],
+        bottom: state.totalGamesCount > 0
+            ? AnalyticsTabBar(controller: _tabController)
+            : null,
       ),
       body: state.totalGamesCount == 0
           ? Center(
@@ -129,50 +167,31 @@ class _AnalyticsDashboardState extends ConsumerState<AnalyticsDashboard> {
                 ),
               ),
             )
-          : Column(
+          : TabBarView(
+              controller: _tabController,
               children: [
-                // 1. Sliding Tab Selector
-                AnalyticsTabBar(
-                  currentTab: state.currentTab,
-                  onTabSelected: (tab) {
-                    ref.read(analyticsTabProvider.notifier).state = tab;
-                  },
+                OverviewTab(
+                  key: const PageStorageKey('overview'),
+                  state: state,
                 ),
-
-                // 2. Active Tab Content
-                Expanded(
-                  child: AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 250),
-                    child: _buildTabContent(state),
-                  ),
+                PlaytimeHabitsTab(
+                  key: const PageStorageKey('playtimeHabits'),
+                  state: state,
+                ),
+                RatingJoyTab(
+                  key: const PageStorageKey('ratingJoy'),
+                  state: state,
+                ),
+                BacklogPipelineTab(
+                  key: const PageStorageKey('backlogPipeline'),
+                  state: state,
+                ),
+                SuperlativesTab(
+                  key: const PageStorageKey('superlatives'),
+                  state: state,
                 ),
               ],
             ),
     );
-  }
-
-  Widget _buildTabContent(AnalyticsState state) {
-    switch (state.currentTab) {
-      case AnalyticsTab.playtimeHabits:
-        return PlaytimeHabitsTab(
-          key: const ValueKey('playtimeHabits'),
-          state: state,
-        );
-      case AnalyticsTab.ratingJoy:
-        return RatingJoyTab(
-          key: const ValueKey('ratingJoy'),
-          state: state,
-        );
-      case AnalyticsTab.backlogPipeline:
-        return BacklogPipelineTab(
-          key: const ValueKey('backlogPipeline'),
-          state: state,
-        );
-      case AnalyticsTab.superlatives:
-        return SuperlativesTab(
-          key: const ValueKey('superlatives'),
-          state: state,
-        );
-    }
   }
 }

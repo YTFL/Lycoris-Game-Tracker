@@ -35,7 +35,7 @@ class SuperlativesTab extends StatelessWidget {
               ? '${CurrencyHelper.format(state.infiniteValueCostPerHour!, currencyCode: state.primaryCurrency)}/hr'
               : 'N/A',
           icon: Icons.stars_rounded,
-          color: const Color(0xFF10B981), // Emerald
+          color: colorScheme.primary,
           game: state.infiniteValueGame!,
           extraDetail: '${TimeNormalizer.format(state.infiniteValueGame!.totalMinutesPlayed)} played',
         ),
@@ -45,7 +45,7 @@ class SuperlativesTab extends StatelessWidget {
           subtitle: 'Highest absolute logged playtime',
           badgeText: TimeNormalizer.format(state.blackHoleGame!.totalMinutesPlayed),
           icon: Icons.all_inclusive_rounded,
-          color: const Color(0xFF8B5CF6), // Purple
+          color: colorScheme.secondary,
           game: state.blackHoleGame!,
           extraDetail: '${(state.blackHoleGame!.hoursPlayed / 24).toStringAsFixed(1)} full days',
         ),
@@ -57,7 +57,7 @@ class SuperlativesTab extends StatelessWidget {
               ? '${CurrencyHelper.format(state.moneyPitCostPerHour!, currencyCode: state.primaryCurrency)}/hr'
               : 'N/A',
           icon: Icons.money_off_csred_rounded,
-          color: const Color(0xFFEF4444), // Crimson
+          color: colorScheme.error,
           game: state.moneyPitGame!,
           extraDetail: 'Paid ${CurrencyHelper.format(state.moneyPitGame!.totalSpent, currencyCode: state.moneyPitGame!.currency)}',
         ),
@@ -67,7 +67,7 @@ class SuperlativesTab extends StatelessWidget {
           subtitle: 'Most played free or claimed game',
           badgeText: TimeNormalizer.format(state.goldenFreebieGame!.totalMinutesPlayed),
           icon: Icons.card_giftcard_rounded,
-          color: const Color(0xFFF59E0B), // Amber
+          color: colorScheme.tertiary,
           game: state.goldenFreebieGame!,
           extraDetail: 'Claimed for \$0.00',
         ),
@@ -77,7 +77,7 @@ class SuperlativesTab extends StatelessWidget {
           subtitle: 'Highest personal rating among completed titles',
           badgeText: '${state.masterpieceGame!.personalRating.toStringAsFixed(1)} ★',
           icon: Icons.military_tech_rounded,
-          color: const Color(0xFFFBBF24), // Gold
+          color: colorScheme.primary,
           game: state.masterpieceGame!,
           extraDetail: state.masterpieceGame!.status.displayName,
         ),
@@ -87,7 +87,7 @@ class SuperlativesTab extends StatelessWidget {
           subtitle: 'Most capital invested in expansions & DLCs',
           badgeText: CurrencyHelper.format(state.dlcCollectorSpend!, currencyCode: state.primaryCurrency),
           icon: Icons.shopping_bag_outlined,
-          color: colorScheme.primary,
+          color: colorScheme.secondary,
           game: state.dlcCollectorGame!,
           extraDetail: '${state.dlcCollectorGame!.additionalExpenses.length} DLCs/expansions recorded',
         ),

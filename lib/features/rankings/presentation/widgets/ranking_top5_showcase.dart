@@ -174,7 +174,7 @@ class RankingTop5Showcase extends StatelessWidget {
               ),
             ),
 
-            // Rank Badge Top
+            // Rank Badge Top Left
             Positioned(
               top: 8,
               left: 8,
@@ -191,6 +191,46 @@ class RankingTop5Showcase extends StatelessWidget {
                     fontWeight: FontWeight.w900,
                     color: Colors.black87,
                   ),
+                ),
+              ),
+            ),
+
+            // Rating Badge Top Right
+            Positioned(
+              top: 8,
+              right: 8,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                decoration: BoxDecoration(
+                  color: Colors.black.withAlpha(160),
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(
+                    color: colorScheme.outlineVariant.withAlpha(60),
+                    width: 0.8,
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      item.game.personalRating > 0
+                          ? Icons.star_rounded
+                          : Icons.star_outline_rounded,
+                      size: 11,
+                      color: colorScheme.primary,
+                    ),
+                    const SizedBox(width: 2),
+                    Text(
+                      item.game.personalRating > 0
+                          ? item.game.personalRating.toStringAsFixed(1)
+                          : '—',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w800,
+                        color: colorScheme.onSurface,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -214,11 +254,10 @@ class RankingTop5Showcase extends StatelessWidget {
                       height: 1.15,
                     ),
                   ),
-                  const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      // Playtime
-                      if (item.game.totalMinutesPlayed > 0) ...[
+                  if (item.game.totalMinutesPlayed > 0) ...[
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
                         Icon(
                           Icons.schedule_rounded,
                           size: 11,
@@ -237,29 +276,9 @@ class RankingTop5Showcase extends StatelessWidget {
                             ),
                           ),
                         ),
-                        const SizedBox(width: 6),
                       ],
-                      // Personal Star Rating
-                      Icon(
-                        item.game.personalRating > 0
-                            ? Icons.star_rounded
-                            : Icons.star_outline_rounded,
-                        size: 12,
-                        color: Colors.amberAccent,
-                      ),
-                      const SizedBox(width: 2),
-                      Text(
-                        item.game.personalRating > 0
-                            ? item.game.personalRating.toStringAsFixed(1)
-                            : '—',
-                        style: const TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w800,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ],
               ),
             ),

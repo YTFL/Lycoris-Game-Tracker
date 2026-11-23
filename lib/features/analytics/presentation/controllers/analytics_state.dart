@@ -1,7 +1,9 @@
 import '../../../tracker/domain/models/game_entry.dart';
 import '../../../tracker/domain/models/game_status.dart';
+import '../../../tracker/domain/models/storefront.dart';
 
 enum AnalyticsTab {
+  overview('Overview'),
   playtimeHabits('Playtime & Habits'),
   ratingJoy('Rating & Joy'),
   backlogPipeline('Backlog & Pipeline'),
@@ -86,6 +88,22 @@ class GenreAnalyticsData {
   double get totalHours => totalMinutes / 60.0;
 }
 
+class StorefrontAnalyticsData {
+  final Storefront storefront;
+  final int count;
+  final double totalSpend;
+  final int totalMinutes;
+
+  const StorefrontAnalyticsData({
+    required this.storefront,
+    required this.count,
+    required this.totalSpend,
+    required this.totalMinutes,
+  });
+
+  double get totalHours => totalMinutes / 60.0;
+}
+
 class JoyPerDollarEntry {
   final GameEntry game;
   final double joyScore; // rating / cost
@@ -104,7 +122,7 @@ class AnalyticsState {
   final AnalyticsTab currentTab;
   final String primaryCurrency;
 
-  // General KPIs
+  // General KPIs (The Core Big 4 & Overview)
   final int totalGamesCount;
   final int totalMinutesPlayed;
   final double totalInvested;
@@ -112,6 +130,10 @@ class AnalyticsState {
   final double averagePlaytimeHours;
   final double medianPlaytimeHours;
   final double top3GamesSharePercent;
+  final int playedGamesCount;
+  final int unplayedGamesCount;
+  final double backlogCapitalPercent;
+  final StorefrontAnalyticsData? topStorefront;
 
   // 1. Playtime & Habits
   final List<PlaytimeBucketData> playtimeBuckets;
@@ -148,7 +170,7 @@ class AnalyticsState {
   final double? dlcCollectorSpend;
 
   const AnalyticsState({
-    this.currentTab = AnalyticsTab.playtimeHabits,
+    this.currentTab = AnalyticsTab.overview,
     this.primaryCurrency = 'USD',
     this.totalGamesCount = 0,
     this.totalMinutesPlayed = 0,
@@ -157,6 +179,10 @@ class AnalyticsState {
     this.averagePlaytimeHours = 0.0,
     this.medianPlaytimeHours = 0.0,
     this.top3GamesSharePercent = 0.0,
+    this.playedGamesCount = 0,
+    this.unplayedGamesCount = 0,
+    this.backlogCapitalPercent = 0.0,
+    this.topStorefront,
     this.playtimeBuckets = const [],
     this.topGenres = const [],
     this.medianRating = 0.0,
@@ -186,6 +212,7 @@ class AnalyticsState {
   });
 
   double get totalHoursPlayed => totalMinutesPlayed / 60.0;
+  double get totalDaysPlayed => totalHoursPlayed / 24.0;
   double get abandonedHours => abandonedMinutes / 60.0;
 
   AnalyticsState copyWith({
@@ -198,6 +225,10 @@ class AnalyticsState {
     double? averagePlaytimeHours,
     double? medianPlaytimeHours,
     double? top3GamesSharePercent,
+    int? playedGamesCount,
+    int? unplayedGamesCount,
+    double? backlogCapitalPercent,
+    StorefrontAnalyticsData? topStorefront,
     List<PlaytimeBucketData>? playtimeBuckets,
     List<GenreAnalyticsData>? topGenres,
     double? medianRating,
@@ -235,6 +266,10 @@ class AnalyticsState {
       averagePlaytimeHours: averagePlaytimeHours ?? this.averagePlaytimeHours,
       medianPlaytimeHours: medianPlaytimeHours ?? this.medianPlaytimeHours,
       top3GamesSharePercent: top3GamesSharePercent ?? this.top3GamesSharePercent,
+      playedGamesCount: playedGamesCount ?? this.playedGamesCount,
+      unplayedGamesCount: unplayedGamesCount ?? this.unplayedGamesCount,
+      backlogCapitalPercent: backlogCapitalPercent ?? this.backlogCapitalPercent,
+      topStorefront: topStorefront ?? this.topStorefront,
       playtimeBuckets: playtimeBuckets ?? this.playtimeBuckets,
       topGenres: topGenres ?? this.topGenres,
       medianRating: medianRating ?? this.medianRating,

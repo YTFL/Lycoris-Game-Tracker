@@ -1,18 +1,18 @@
 import 'package:flutter/material.dart';
 import '../controllers/analytics_state.dart';
 
-class AnalyticsTabBar extends StatelessWidget {
-  final AnalyticsTab currentTab;
-  final ValueChanged<AnalyticsTab> onTabSelected;
+class AnalyticsTabBar extends StatelessWidget implements PreferredSizeWidget {
+  final TabController controller;
 
   const AnalyticsTabBar({
     super.key,
-    required this.currentTab,
-    required this.onTabSelected,
+    required this.controller,
   });
 
   IconData _iconForTab(AnalyticsTab tab) {
     switch (tab) {
+      case AnalyticsTab.overview:
+        return Icons.dashboard_rounded;
       case AnalyticsTab.playtimeHabits:
         return Icons.timer_outlined;
       case AnalyticsTab.ratingJoy:
@@ -25,75 +25,35 @@ class AnalyticsTabBar extends StatelessWidget {
   }
 
   @override
+  Size get preferredSize => const Size.fromHeight(48);
+
+  @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
+    final colorScheme = Theme.of(context).colorScheme;
 
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: Row(
-        children: AnalyticsTab.values.map((tab) {
-          final isSelected = tab == currentTab;
-          final icon = _iconForTab(tab);
-
-          return Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: InkWell(
-              borderRadius: BorderRadius.circular(20),
-              onTap: () => onTabSelected(tab),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                curve: Curves.easeInOut,
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                decoration: BoxDecoration(
-                  color: isSelected
-                      ? colorScheme.primary
-                      : colorScheme.surfaceContainerHigh,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(
-                    color: isSelected
-                        ? colorScheme.primary
-                        : colorScheme.outlineVariant.withAlpha(60),
-                  ),
-                  boxShadow: isSelected
-                      ? [
-                          BoxShadow(
-                            color: colorScheme.primary.withAlpha(50),
-                            blurRadius: 8,
-                            offset: const Offset(0, 2),
-                          ),
-                        ]
-                      : null,
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      icon,
-                      size: 16,
-                      color: isSelected
-                          ? colorScheme.onPrimary
-                          : colorScheme.onSurfaceVariant,
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      tab.label,
-                      style: theme.textTheme.labelMedium?.copyWith(
-                        color: isSelected
-                            ? colorScheme.onPrimary
-                            : colorScheme.onSurface,
-                        fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
-                        letterSpacing: 0.2,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          );
-        }).toList(),
-      ),
+    return TabBar(
+      controller: controller,
+      isScrollable: true,
+      tabAlignment: TabAlignment.start,
+      indicatorSize: TabBarIndicatorSize.label,
+      indicatorWeight: 3,
+      indicatorColor: colorScheme.primary,
+      labelColor: colorScheme.primary,
+      unselectedLabelColor: colorScheme.onSurfaceVariant,
+      labelStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+      unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.normal, fontSize: 13),
+      tabs: AnalyticsTab.values.map((tab) {
+        return Tab(
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(_iconForTab(tab), size: 16),
+              const SizedBox(width: 8),
+              Text(tab.label),
+            ],
+          ),
+        );
+      }).toList(),
     );
   }
 }
