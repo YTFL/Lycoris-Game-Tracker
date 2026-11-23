@@ -12,6 +12,7 @@ import '../../domain/models/additional_expense.dart';
 import '../../domain/models/game_entry.dart';
 import '../../domain/models/game_status.dart';
 import '../controllers/library_notifier.dart';
+import '../widgets/add_dlc_dialog.dart';
 import '../widgets/edit_game_modal.dart';
 import '../widgets/help_me_rate_sheet.dart';
 import '../widgets/playtime_editor_dialog.dart';
@@ -46,70 +47,7 @@ class _DossierScreenState extends ConsumerState<DossierScreen> {
   }
 
   void _showAddExpenseDialog(BuildContext context, GameEntry game) {
-    final titleController = TextEditingController();
-    final amountController = TextEditingController();
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: colorScheme.surfaceContainerHigh,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-          side: BorderSide(color: colorScheme.outlineVariant.withAlpha(60)),
-        ),
-        title: Text(
-          'Add Additional Expense / DLC',
-          style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: titleController,
-              onTap: () => TextFieldHelper.selectAll(titleController),
-              decoration: const InputDecoration(
-                labelText: 'Title / Description',
-                hintText: 'e.g. Season Pass, Deluxe DLC, Skin',
-              ),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: amountController,
-              onTap: () => TextFieldHelper.selectAll(amountController),
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              decoration: InputDecoration(
-                labelText: 'Amount (${game.currency})',
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () {
-              final title = titleController.text.trim();
-              final amount = double.tryParse(amountController.text.trim()) ?? 0.0;
-              if (title.isNotEmpty && amount > 0) {
-                final expense = AdditionalExpense(
-                  id: const Uuid().v4(),
-                  title: title,
-                  amount: amount,
-                  date: DateTime.now(),
-                );
-                ref.read(libraryNotifierProvider.notifier).addExpense(game.id, expense);
-                Navigator.pop(ctx);
-              }
-            },
-            child: const Text('Add Expense'),
-          ),
-        ],
-      ),
-    );
+    AddDlcDialog.show(context, game);
   }
 
   void _showRatingAndJournalEditor(BuildContext context, GameEntry game) {

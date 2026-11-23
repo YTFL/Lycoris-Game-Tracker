@@ -79,6 +79,68 @@ class IGDBSearchResult {
       };
 }
 
+class IGDBDlcResult {
+  final int id;
+  final String title;
+  final String? summary;
+  final String? coverBigUrl;
+  final String? cover720pUrl;
+  final DateTime? releaseDate;
+  final int category;
+
+  const IGDBDlcResult({
+    required this.id,
+    required this.title,
+    this.summary,
+    this.coverBigUrl,
+    this.cover720pUrl,
+    this.releaseDate,
+    this.category = 1,
+  });
+
+  String get categoryLabel {
+    switch (category) {
+      case 1:
+        return 'DLC / Addon';
+      case 2:
+        return 'Expansion';
+      case 3:
+        return 'Bundle';
+      case 4:
+        return 'Standalone Expansion';
+      case 8:
+        return 'Remap / Pack';
+      case 9:
+        return 'Season Pass';
+      case 10:
+        return 'Game Edition';
+      default:
+        return 'DLC / Extra';
+    }
+  }
+
+  factory IGDBDlcResult.fromJson(Map<String, dynamic> json) {
+    final coverData = json['cover'] as Map<String, dynamic>?;
+    final imageId = coverData?['image_id'] as String?;
+
+    DateTime? releaseDate;
+    if (json['first_release_date'] != null) {
+      final timestamp = json['first_release_date'] as int;
+      releaseDate = DateTime.fromMillisecondsSinceEpoch(timestamp * 1000);
+    }
+
+    return IGDBDlcResult(
+      id: json['id'] as int,
+      title: json['name'] as String? ?? 'Untitled DLC',
+      summary: json['summary'] as String?,
+      coverBigUrl: imageId != null ? ApiConstants.coverBigUrl(imageId) : null,
+      cover720pUrl: imageId != null ? ApiConstants.cover720pUrl(imageId) : null,
+      releaseDate: releaseDate,
+      category: json['category'] as int? ?? 1,
+    );
+  }
+}
+
 class IGDBService {
   final Dio _dio;
   String _workerProxyUrl;
@@ -198,42 +260,7 @@ limit $limit;
 ''';
 
     try {
-      final Response<dynamic> response;
-
-      // 2. Direct Twitch Developer Mode vs Worker Proxy Mode
-      if (hasDirectTwitchCredentials) {
-        final token = await _getTwitchAppToken();
-        if (token == null) {
-          throw Exception('Unable to obtain Twitch App Access Token with provided credentials.');
-        }
-
-        response = await _dio.post<dynamic>(
-          ApiConstants.igdbGamesEndpoint,
-          data: apicalypseQuery,
-          options: Options(
-            headers: {
-              'Client-ID': _twitchClientId!,
-              'Authorization': 'Bearer $token',
-              'Content-Type': 'text/plain',
-            },
-          ),
-        );
-      } else {
-        var targetUrl = _workerProxyUrl;
-        if (!targetUrl.endsWith('/games') && !targetUrl.endsWith('/v4/games')) {
-          targetUrl = targetUrl.endsWith('/') ? '${targetUrl}games' : '$targetUrl/games';
-        }
-
-        response = await _dio.post<dynamic>(
-          targetUrl,
-          data: apicalypseQuery,
-          options: Options(
-            headers: {'Content-Type': 'text/plain'},
-          ),
-        );
-      }
-
-      final rawList = response.data as List<dynamic>;
+      final rawList = await _postApicalypse(apicalypseQuery);
       final results = rawList
           .map((item) => IGDBSearchResult.fromJson(item as Map<String, dynamic>))
           .toList();
@@ -255,5 +282,106 @@ limit $limit;
       }
       return [];
     }
+  }
+
+  /// Sends an APICalypse query payload to IGDB games endpoint
+  Future<List<dynamic>> _postApicalypse(String apicalypseQuery) async {
+    final Response<dynamic> response;
+
+    if (hasDirectTwitchCredentials) {
+      final token = await _getTwitchAppToken();
+      if (token == null) {
+        throw Exception('Unable to obtain Twitch App Access Token with provided credentials.');
+      }
+
+      response = await _dio.post<dynamic>(
+        ApiConstants.igdbGamesEndpoint,
+        data: apicalypseQuery,
+        options: Options(
+          headers: {
+            'Client-ID': _twitchClientId!,
+            'Authorization': 'Bearer $token',
+            'Content-Type': 'text/plain',
+          },
+        ),
+      );
+    } else {
+      var targetUrl = _workerProxyUrl;
+      if (!targetUrl.endsWith('/games') && !targetUrl.endsWith('/v4/games')) {
+        targetUrl = targetUrl.endsWith('/') ? '${targetUrl}games' : '$targetUrl/games';
+      }
+
+      response = await _dio.post<dynamic>(
+        targetUrl,
+        data: apicalypseQuery,
+        options: Options(
+          headers: {'Content-Type': 'text/plain'},
+        ),
+      );
+    }
+
+    return (response.data as List<dynamic>?) ?? [];
+  }
+
+  /// Fetches official DLCs, expansions, and add-ons associated with a parent game from IGDB.
+  Future<List<IGDBDlcResult>> fetchGameDlcs(int parentIgdbId) async {
+    if (parentIgdbId <= 0) return [];
+
+    // 1. Primary Query: Query games where parent_game = parentIgdbId
+    final primaryQuery = '''
+fields name, summary, cover.image_id, first_release_date, category;
+where parent_game = $parentIgdbId;
+sort first_release_date asc;
+limit 50;
+''';
+
+    try {
+      final rawList = await _postApicalypse(primaryQuery);
+      if (rawList.isNotEmpty) {
+        return rawList
+            .map((item) => IGDBDlcResult.fromJson(item as Map<String, dynamic>))
+            .toList();
+      }
+
+      // 2. Fallback: Query parent game and expand dlcs & expansions
+      final fallbackQuery = '''
+fields dlcs.name, dlcs.summary, dlcs.cover.image_id, dlcs.first_release_date, dlcs.category,
+       expansions.name, expansions.summary, expansions.cover.image_id, expansions.first_release_date, expansions.category;
+where id = $parentIgdbId;
+limit 1;
+''';
+      final fallbackList = await _postApicalypse(fallbackQuery);
+      if (fallbackList.isNotEmpty) {
+        final gameData = fallbackList.first as Map<String, dynamic>;
+        final List<IGDBDlcResult> combined = [];
+
+        if (gameData['dlcs'] is List) {
+          for (final dlc in gameData['dlcs'] as List) {
+            if (dlc is Map<String, dynamic>) {
+              combined.add(IGDBDlcResult.fromJson(dlc));
+            }
+          }
+        }
+        if (gameData['expansions'] is List) {
+          for (final exp in gameData['expansions'] as List) {
+            if (exp is Map<String, dynamic>) {
+              combined.add(IGDBDlcResult.fromJson(exp));
+            }
+          }
+        }
+        if (combined.isNotEmpty) {
+          combined.sort((a, b) {
+            if (a.releaseDate == null && b.releaseDate == null) return 0;
+            if (a.releaseDate == null) return 1;
+            if (b.releaseDate == null) return -1;
+            return a.releaseDate!.compareTo(b.releaseDate!);
+          });
+          return combined;
+        }
+      }
+    } catch (e) {
+      debugPrint('[IGDBService] fetchGameDlcs failed for id $parentIgdbId: $e');
+    }
+    return [];
   }
 }

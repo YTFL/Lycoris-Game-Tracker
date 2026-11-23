@@ -10,6 +10,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.1.0] - 2026-11-23
 
 ### Added
+- **Analytics Dashboard Redesign (Tabbed Intelligence Engine)**:
+  - Overhauled analytics into a modular 4-tab sliding pill interface (`Playtime & Habits`, `Rating & Joy`, `Backlog & Pipeline`, `Superlatives`).
+  - **Playtime & Habits**: Added median vs. average playtime with outlier distortion indicator, 5-tier campaign commitment buckets (<5h, 5–20h, 20–50h, 50–100h, 100+h), and genre playtime & satisfaction alignment.
+  - **Rating & Joy**: Implemented *The Golden Quadrant* using a dynamic median-adaptive mathematical model (*Timeless Masterpieces*, *Sweet & Short Gems*, *Time Traps*, *Early Drops*) and a Joy-Per-Dollar (Happiness ROI) leaderboard. All items link directly to game dossiers.
+  - **Backlog & Pipeline**: Added status lifecycle funnel (`Backlog` ➔ `Playing` ➔ `Completed` ➔ `Mastered`), Abandoned Hours & Sunk Capital Tax, and a "Play Next" backlog quick-win recommender.
+  - **Superlatives & Accolades**: Created the Personal Gaming Hall of Fame with tappable award cards (*The Infinite Value*, *The Black Hole*, *The Money Pit*, *The Golden Freebie*, *The Masterpiece*, *The DLC Collector*).
+- **IGDB Official DLC & Expansion Integration**:
+  - Added `fetchGameDlcs` in `IGDBService` querying official DLCs and expansions (`parent_game = igdbId` with fallback to parent entity arrays).
+  - Built `AddDlcDialog` on the Game Dossier screen featuring an official DLC suggestion carousel with category tags (*Expansion*, *DLC / Addon*, *Season Pass*), release dates, cover art, one-tap title autofill, and instant search filtering.
 - **Game Rankings Enhancements**:
   - Displayed playtime (`TimeNormalizer.format`) and user personal star rating in the Top 5 podium slots (#1–#3) and sub-tier cards (#4–#5).
   - Displayed personal star ratings on list tiles across all remaining ranks (#6+).

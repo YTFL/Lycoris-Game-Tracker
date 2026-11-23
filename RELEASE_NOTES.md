@@ -8,7 +8,7 @@
 
 ## Overview
 
-Lycoris **v1.1.0** is a visual refinement and UI polish update that harmonizes accent colors across the app to adhere strictly to the Spider Lily Crimson and dark obsidian/slate design system, eliminates jarring green UI artifacts, and removes unnecessary visual clutter from Settings.
+Lycoris **v1.1.0** is a major feature and refinement release introducing a completely overhauled, tabbed **Analytics Intelligence Engine**, **IGDB official DLC auto-suggestions** on game dossiers, deep Elo ranking calibration improvements with pre-ranking rating sheets, and strict Spider Lily Crimson UI color harmonization.
 
 ---
 
@@ -48,3 +48,16 @@ Lycoris **v1.1.0** is a visual refinement and UI polish update that harmonizes a
 - **Anti-Bias & Anti-Manipulation Updates**:
   - "Help Me Choose": Removed `<game> takes the lead` and `Evenly matched` score tickers to prevent user preference bias; changed confirmation button to `"Continue"`.
   - "Help Me Rate": Hid the live numerical average score from the top card and Apply button to prevent artificial score manipulation.
+
+---
+
+### 4. Analytics Redesign & IGDB DLC Integration
+- **Tabbed Analytics Intelligence Engine**:
+  - Replaced the legacy 4-card analytics screen with a 4-tab sliding pill interface (`Playtime & Habits`, `Rating & Joy`, `Backlog & Pipeline`, `Superlatives`).
+  - **Playtime & Habits**: Surfaced outlier-resistant median playtime alongside arithmetic average, heavy-outlier library share warnings, 5-tier campaign commitment buckets (<5h, 5–20h, 20–50h, 50–100h, 100+h), and genre playtime & satisfaction alignment.
+  - **Rating & Joy**: Implemented *The Golden Quadrant* using an adaptive median-based mathematical model dividing games into *Timeless Masterpieces*, *Sweet & Short Gems*, *Time Traps*, and *Early Drops*. Added a Joy-Per-Dollar (Happiness ROI) leaderboard. All games link directly to their dossier.
+  - **Backlog & Pipeline**: Visualized library completion health, status funnel (`Backlog` ➔ `Playing` ➔ `Completed` ➔ `Mastered`), Abandoned Hours & Capital Tax, and a "Play Next" quick-win recommender.
+  - **Superlatives & Accolades**: Created the Personal Gaming Hall of Fame with tappable award cards (*The Infinite Value*, *The Black Hole*, *The Money Pit*, *The Golden Freebie*, *The Masterpiece*, *The DLC Collector*).
+- **Official IGDB DLC Search & Autofill**:
+  - Enhanced `IGDBService` with `fetchGameDlcs` to retrieve official expansions and DLCs directly from IGDB.
+  - Upgraded the "Add DLC" dialog in `DossierScreen` to `AddDlcDialog`, featuring an interactive carousel of official DLCs with category chips (*Expansion*, *DLC / Addon*, *Season Pass*), release dates, cover art, one-tap title autofill, and instant query filtering.
