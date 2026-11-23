@@ -190,6 +190,44 @@ Compute defensible, holistic review scores out of 10.0 using the structured "Hel
 
 ---
 
+### 9. In-App Documentation, Legal Sovereignty & Developer Showcase
+
+#### Native Markdown Viewer (`MarkdownViewerScreen`)
+- **Theme-Integrated Reader**: Clean in-app reader styled to match Lycoris’s signature Spider Lily Crimson & Obsidian aesthetic.
+- **Selectable & Interactive**: Enables text selection, formatted code/blockquotes, responsive tables, and automatic external URL dispatching via `url_launcher`.
+- **Offline Asset Delivery**: Bundled directly within the application package for instantaneous, zero-latency access without an active internet connection.
+
+#### Settings "About & Legal" Module
+- **What's New**: Instantly browse release notes and version milestones within the app.
+- **View More Apps by Me**: Seamlessly redirect to the developer's web showcase (`https://ytfl.github.io/`).
+- **Terms and Conditions**: Embedded review of the AGPL-3.0 open-source terms and user data sovereignty covenants (`docs/terms.md`).
+- **Privacy Policy**: Full disclosure of the zero-telemetry architecture and Google Drive restricted `drive.file` boundaries (`docs/privacy.md`).
+
+---
+
+### 10. Automated GitHub Updates & In-App APK Installer
+
+#### Dual-Source Release Detection
+- **Raw GitHub Endpoint**: Primary version check queries `update.json` on raw GitHub, completely bypassing GitHub API unauthenticated rate limits (60 req/hr per IP).
+- **GitHub Releases API Fallback**: Resilient fallback queries `https://api.github.com/repos/YTFL/Lycoris-Game-Tracker/releases/latest` to parse release tags, published dates, release notes bodies, and release assets dynamically.
+- **Dynamic Asset Discovery**: Automatically inspects release assets to locate any `.apk` binaries (e.g., `Lycoris-vX.Y.Z.apk`) rather than relying on brittle hardcoded filename assumptions.
+
+#### Seamless Launch Check & Reminder Deferral
+- **Silent Launch Check**: Automatically checks for new versions in the background on cold launch without blocking UI initialization.
+- **24-Hour Reminder Deferral**: Users can tap "Remind Later" to suppress update prompts for 24 hours, stored persistently in Hive settings.
+- **On-Demand Manual Check**: Users can manually verify their version at any time from **Settings > About Lycoris** with real-time checking feedback and latest version toasts.
+
+#### In-App Download Engine & Streamed Progress
+- **Memory-Safe Disk Streaming**: Leverages `Dio` to stream chunked APK bytes directly to disk in the app's documents directory, preventing large memory overheads.
+- **Two-Tone Animated Progress Bar**: Real-time progress bar with percentage indicator (`Downloading... 67%`) styled in Spider Lily crimson tones.
+
+#### Native Android Package Installer Integration
+- **Secure FileProvider (`${applicationId}.fileprovider`)**: Exposes downloaded APK packages via content URIs with `FLAG_GRANT_READ_URI_PERMISSION`.
+- **Android 8.0+ Permission Redirection**: Checks `packageManager.canRequestPackageInstalls()`; if unknown package installation is disallowed, directs the user directly to the system settings toggle for Lycoris.
+- **Automatic Pruning**: Automatically purges downloaded update packages from local storage upon successful installation or when running on the latest version to conserve device disk space.
+
+---
+
 ## Technical Specifications
 
 | Parameter | Specification |
@@ -199,6 +237,7 @@ Compute defensible, holistic review scores out of 10.0 using the structured "Hel
 | **State Management** | Flutter Riverpod 2.5 |
 | **Persistence Engine** | Hive NoSQL 2.2 |
 | **Networking & HTTP** | Dio 5.4 + Cached Network Image 3.3 |
+| **App Updates & Package Install** | `package_info_plus` 10.2, `open_filex` 4.7, `path_provider` 2.1 |
 | **Cloud Synchronization** | Google APIs (`googleapis`, `google_sign_in`) |
 | **Cryptography** | AES / SHA-256 for secure proxy communication |
 | **Data Visualization** | fl_chart 0.68 |

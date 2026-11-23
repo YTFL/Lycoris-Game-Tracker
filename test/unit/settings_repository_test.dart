@@ -66,5 +66,29 @@ void main() {
       await repo.setUseDeveloperApi(false);
       expect(repo.useDeveloperApi, isFalse);
     });
+
+    test('backupDirectoryPath, lastOfflineBackupAt, and status persist correctly', () async {
+      expect(repo.backupDirectoryPath, isNull);
+      expect(repo.lastOfflineBackupAt, isNull);
+      expect(repo.lastOfflineBackupStatus, isNull);
+
+      const path = '/storage/emulated/0/Download/LycorisBackups';
+      await repo.setBackupDirectoryPath(path);
+      expect(repo.backupDirectoryPath, equals(path));
+
+      final now = DateTime(2026, 10, 24, 20, 0, 0);
+      await repo.setLastOfflineBackupAt(now);
+      expect(repo.lastOfflineBackupAt, equals(now));
+
+      await repo.setLastOfflineBackupStatus('Backup created successfully');
+      expect(repo.lastOfflineBackupStatus, equals('Backup created successfully'));
+
+      // Clear directory path
+      await repo.setBackupDirectoryPath(null);
+      expect(repo.backupDirectoryPath, isNull);
+
+      await repo.setLastOfflineBackupStatus(null);
+      expect(repo.lastOfflineBackupStatus, isNull);
+    });
   });
 }

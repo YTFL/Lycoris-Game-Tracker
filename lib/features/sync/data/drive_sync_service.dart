@@ -12,14 +12,83 @@ class DriveSyncService {
     scopes: [drive.DriveApi.driveFileScope],
   );
 
-  /// Authenticate and retrieve Drive client
-  Future<drive.DriveApi?> _getDriveClient() async {
-    final account = await _googleSignIn.signIn();
-    if (account == null) return null;
+  GoogleSignInAccount? _currentUser;
+  drive.DriveApi? _cachedDriveClient;
+
+  DriveSyncService() {
+    _initAuthListener();
+  }
+
+  void _initAuthListener() {
+    _googleSignIn.onCurrentUserChanged.listen((account) {
+      _currentUser = account;
+      if (account == null) {
+        _cachedDriveClient = null;
+      }
+    });
+  }
+
+  /// Whether a user is currently signed in
+  Future<bool> isSignedIn() async {
+    if (_currentUser != null) return true;
+    _currentUser = _googleSignIn.currentUser;
+    _currentUser ??= await _googleSignIn.signInSilently();
+    return _currentUser != null;
+  }
+
+  /// Current user's email address if signed in
+  String? get currentUserEmail => _currentUser?.email ?? _googleSignIn.currentUser?.email;
+
+  /// Explicitly trigger interactive Google Sign-In
+  Future<bool> signInInteractive() async {
+    try {
+      _currentUser = await _googleSignIn.signIn();
+      if (_currentUser == null) return false;
+      final httpClient = await _googleSignIn.authenticatedClient();
+      if (httpClient == null) return false;
+      _cachedDriveClient = drive.DriveApi(httpClient);
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Sign out and clear cached client
+  Future<void> signOut() async {
+    try {
+      await _googleSignIn.signOut();
+    } catch (_) {}
+    _currentUser = null;
+    _cachedDriveClient = null;
+  }
+
+  /// Retrieve Drive client.
+  /// If [interactiveIfNeeded] is true and user is not signed in, prompts for sign in.
+  /// Otherwise, attempts silent authentication to preserve sign-in state without modal interruptions.
+  Future<drive.DriveApi?> getDriveClient({bool interactiveIfNeeded = false}) async {
+    if (_cachedDriveClient != null && _currentUser != null) {
+      return _cachedDriveClient;
+    }
+
+    _currentUser ??= _googleSignIn.currentUser;
+    _currentUser ??= await _googleSignIn.signInSilently();
+
+    if (_currentUser == null && interactiveIfNeeded) {
+      _currentUser = await _googleSignIn.signIn();
+    }
+
+    if (_currentUser == null) return null;
+
     final httpClient = await _googleSignIn.authenticatedClient();
     if (httpClient == null) return null;
-    return drive.DriveApi(httpClient);
+
+    _cachedDriveClient = drive.DriveApi(httpClient);
+    return _cachedDriveClient;
   }
+
+  /// Backward-compatible private alias
+  Future<drive.DriveApi?> _getDriveClient({bool interactiveIfNeeded = false}) =>
+      getDriveClient(interactiveIfNeeded: interactiveIfNeeded);
 
   /// Locates existing 'Lycoris' folder or creates one at Drive root
   Future<String?> _getOrCreateBackupFolder(drive.DriveApi driveApi) async {
@@ -75,10 +144,11 @@ class DriveSyncService {
     return mergedCount;
   }
 
-  /// Uploads backup payload to the user visible Google Drive 'Lycoris' folder
-  Future<bool> backupToDrive(Box<GameEntry> box) async {
+  /// Uploads backup payload to the user visible Google Drive 'Lycoris' folder.
+  /// Set [interactiveIfNeeded] to true for manual buttons in Settings; false for automated background sync.
+  Future<bool> backupToDrive(Box<GameEntry> box, {bool interactiveIfNeeded = false}) async {
     try {
-      final driveApi = await _getDriveClient();
+      final driveApi = await getDriveClient(interactiveIfNeeded: interactiveIfNeeded);
       if (driveApi == null) return false;
 
       final folderId = await _getOrCreateBackupFolder(driveApi);
@@ -116,10 +186,11 @@ class DriveSyncService {
     }
   }
 
-  /// Restores backup from Google Drive 'Lycoris' folder with LWW delta merge
-  Future<int> restoreFromDrive(Box<GameEntry> box) async {
+  /// Restores backup from Google Drive 'Lycoris' folder with LWW delta merge.
+  /// Set [interactiveIfNeeded] to true for manual buttons in Settings; false for automated background sync.
+  Future<int> restoreFromDrive(Box<GameEntry> box, {bool interactiveIfNeeded = true}) async {
     try {
-      final driveApi = await _getDriveClient();
+      final driveApi = await getDriveClient(interactiveIfNeeded: interactiveIfNeeded);
       if (driveApi == null) return 0;
 
       final folderId = await _getOrCreateBackupFolder(driveApi);

@@ -14,6 +14,11 @@ class SettingsRepository {
   static const String keyLastSyncedAt = 'last_synced_at';
   static const String keyShelfViewMode = 'shelf_view_mode';
   static const String keyUseDeveloperApi = 'use_developer_api';
+  static const String keyBackupDirectoryPath = 'backup_directory_path';
+  static const String keyLastOfflineBackupAt = 'last_offline_backup_at';
+  static const String keyLastOfflineBackupStatus = 'last_offline_backup_status';
+  static const String keyUpdateDeferredUntil = 'update_deferred_until';
+  static const String keyLastUpdateCheckAt = 'last_update_check_at';
 
   SettingsRepository(this._box);
 
@@ -80,4 +85,48 @@ class SettingsRepository {
 
   bool get useDeveloperApi => _box.get(keyUseDeveloperApi, defaultValue: false) as bool;
   Future<void> setUseDeveloperApi(bool value) => _box.put(keyUseDeveloperApi, value);
+
+  String? get backupDirectoryPath => _box.get(keyBackupDirectoryPath) as String?;
+  Future<void> setBackupDirectoryPath(String? path) async {
+    if (path == null || path.trim().isEmpty) {
+      await _box.delete(keyBackupDirectoryPath);
+    } else {
+      await _box.put(keyBackupDirectoryPath, path.trim());
+    }
+  }
+
+  DateTime? get lastOfflineBackupAt {
+    final millis = _box.get(keyLastOfflineBackupAt);
+    return millis != null ? DateTime.fromMillisecondsSinceEpoch(millis as int) : null;
+  }
+
+  Future<void> setLastOfflineBackupAt(DateTime date) =>
+      _box.put(keyLastOfflineBackupAt, date.millisecondsSinceEpoch);
+
+  String? get lastOfflineBackupStatus => _box.get(keyLastOfflineBackupStatus) as String?;
+  Future<void> setLastOfflineBackupStatus(String? status) async {
+    if (status == null) {
+      await _box.delete(keyLastOfflineBackupStatus);
+    } else {
+      await _box.put(keyLastOfflineBackupStatus, status);
+    }
+  }
+
+  DateTime? get updateDeferredUntil {
+    final millis = _box.get(keyUpdateDeferredUntil);
+    return millis != null ? DateTime.fromMillisecondsSinceEpoch(millis as int) : null;
+  }
+
+  Future<void> setUpdateDeferredUntil(DateTime date) =>
+      _box.put(keyUpdateDeferredUntil, date.millisecondsSinceEpoch);
+
+  Future<void> clearUpdateDeferral() => _box.delete(keyUpdateDeferredUntil);
+
+  DateTime? get lastUpdateCheckAt {
+    final millis = _box.get(keyLastUpdateCheckAt);
+    return millis != null ? DateTime.fromMillisecondsSinceEpoch(millis as int) : null;
+  }
+
+  Future<void> setLastUpdateCheckAt(DateTime date) =>
+      _box.put(keyLastUpdateCheckAt, date.millisecondsSinceEpoch);
 }

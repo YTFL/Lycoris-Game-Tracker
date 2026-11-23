@@ -1,18 +1,24 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:path/path.dart' as p;
+import 'package:url_launcher/url_launcher.dart';
 import '../../../../core/constants/api_constants.dart';
-import '../../../../core/constants/colors.dart';
 import '../../../../core/services/exchange_rate_service.dart';
 import '../../../../core/utils/currency_helper.dart';
 import '../../../../core/utils/text_field_helper.dart';
 import '../../../search/data/igdb_cache_service.dart';
 import '../../../search/data/igdb_service.dart';
 import '../../../tracker/presentation/controllers/library_notifier.dart';
+import '../../data/offline_backup_service.dart';
+import '../../data/saf_storage_service.dart';
 import '../controllers/settings_notifier.dart';
+import '../../../update/presentation/controllers/update_notifier.dart';
+import 'markdown_viewer_screen.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -28,12 +34,54 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   bool _isTestingConnection = false;
   String? _testConnectionResult;
+  bool? _testConnectionSuccess;
   bool _isSyncingRates = false;
   bool _useDeveloperApi = false;
   bool _isEditingSecret = false;
 
   int _cacheSizeBytes = 0;
   bool _isClearingCache = false;
+
+  void _showNotification(
+    String message, {
+    bool isError = false,
+    IconData? icon,
+  }) {
+    if (!mounted) return;
+    final colorScheme = Theme.of(context).colorScheme;
+    ScaffoldMessenger.of(context)
+      ..clearSnackBars()
+      ..showSnackBar(
+        SnackBar(
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: colorScheme.surfaceContainerHighest,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: BorderSide(
+              color: isError
+                  ? colorScheme.error.withAlpha(120)
+                  : colorScheme.primary.withAlpha(80),
+            ),
+          ),
+          content: Row(
+            children: [
+              Icon(
+                icon ?? (isError ? Icons.error_outline_rounded : Icons.check_circle_outline_rounded),
+                size: 20,
+                color: isError ? colorScheme.error : colorScheme.primary,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  message,
+                  style: TextStyle(color: colorScheme.onSurface),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+  }
 
   @override
   void initState() {
@@ -70,6 +118,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     setState(() {
       _isTestingConnection = true;
       _testConnectionResult = null;
+      _testConnectionSuccess = null;
     });
 
     final service = IGDBService(
@@ -81,9 +130,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     if (mounted) {
       setState(() {
         _isTestingConnection = false;
+        _testConnectionSuccess = success;
         _testConnectionResult = success
-            ? 'Connection successful. Cloudflare proxy is operational.'
-            : 'Connection failed. Verify endpoint URL or internet access.';
+            ? 'Proxy operational'
+            : 'Connection failed';
       });
     }
   }
@@ -107,12 +157,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
     if (mounted) {
       setState(() {});
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Settings saved successfully.'),
-          backgroundColor: LycorisColors.success,
-        ),
-      );
+      _showNotification('Settings saved successfully.');
     }
   }
 
@@ -122,12 +167,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     _proxyUrlController.text = ApiConstants.igdbProxyUrl;
     if (mounted) {
       setState(() {});
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Proxy URL reset to default.'),
-          backgroundColor: LycorisColors.info,
-        ),
-      );
+      _showNotification('Proxy URL reset to default.', icon: Icons.restart_alt_rounded);
     }
   }
 
@@ -222,27 +262,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       await _loadCacheStats();
       if (mounted) {
         setState(() => _isClearingCache = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Metadata cache successfully cleared.'),
-            backgroundColor: LycorisColors.success,
-          ),
-        );
+        _showNotification('Metadata cache successfully cleared.');
       }
-    }
-  }
-
-  Future<void> _handleFileExport() async {
-    final jsonPayload = ref.read(settingsNotifierProvider.notifier).exportToJson();
-    await Clipboard.setData(ClipboardData(text: jsonPayload));
-
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Library JSON backup copied to clipboard! Save to your backup file.'),
-          backgroundColor: LycorisColors.success,
-        ),
-      );
     }
   }
 
@@ -261,23 +282,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         if (content.isNotEmpty) {
           final count = await ref.read(settingsNotifierProvider.notifier).importFromJson(content);
           if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('Imported $count entries via LWW merge!'),
-                backgroundColor: LycorisColors.success,
-              ),
-            );
+            _showNotification('Imported $count entries via LWW merge!');
           }
         }
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Import failed: $e'),
-            backgroundColor: LycorisColors.error,
-          ),
-        );
+        _showNotification('Import failed: $e', isError: true);
       }
     }
   }
@@ -291,30 +302,18 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     if (mounted) {
       setState(() => _isSyncingRates = false);
       if (success) {
-        ScaffoldMessenger.of(context)
-          ..clearSnackBars()
-          ..showSnackBar(
-            const SnackBar(
-              content: Text('Exchange rates updated successfully!'),
-              backgroundColor: LycorisColors.success,
-            ),
-          );
+        _showNotification('Exchange rates updated successfully!');
       } else {
         final rates = ref.read(exchangeRatesNotifierProvider);
         final remaining = ExchangeRateService.timeUntilNextSync(rates: rates);
         final cooldownText = ExchangeRateService.formatCooldownRemaining(remaining);
-        ScaffoldMessenger.of(context)
-          ..clearSnackBars()
-          ..showSnackBar(
-            SnackBar(
-              content: Text(
-                ExchangeRateService.canSync(rates: rates)
-                    ? 'Failed to fetch live exchange rates. Check connection.'
-                    : '24-hour sync cooldown active. Next sync in $cooldownText.',
-              ),
-              backgroundColor: LycorisColors.warning,
-            ),
-          );
+        _showNotification(
+          ExchangeRateService.canSync(rates: rates)
+              ? 'Failed to fetch live exchange rates. Check connection.'
+              : '24-hour sync cooldown active. Next sync in $cooldownText.',
+          isError: true,
+          icon: Icons.schedule_rounded,
+        );
       }
     }
   }
@@ -329,12 +328,373 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
   }
 
+  String _formatDirectoryDisplay(String rawPath) {
+    if (rawPath.startsWith('content://')) {
+      final segments = rawPath.split('%3A');
+      if (segments.length > 1) {
+        final decoded = Uri.decodeComponent(segments.last);
+        return decoded.isNotEmpty ? decoded : 'Root Storage';
+      }
+      return 'Selected Folder';
+    }
+    return rawPath;
+  }
+
+  Future<void> _handlePickBackupDirectory() async {
+    try {
+      String? selectedDirectory;
+
+      if (!kIsWeb && Platform.isAndroid) {
+        final result = await SafStorageService.pickFolder();
+        if (result != null) {
+          selectedDirectory = result.uri;
+        }
+      } else {
+        selectedDirectory = await FilePicker.getDirectoryPath(
+          dialogTitle: 'Select Lycoris Backup Folder',
+        );
+      }
+
+      if (selectedDirectory != null && selectedDirectory.trim().isNotEmpty) {
+        final success = await ref
+            .read(settingsNotifierProvider.notifier)
+            .setBackupDirectory(selectedDirectory.trim());
+
+        if (mounted) {
+          final colorScheme = Theme.of(context).colorScheme;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              behavior: SnackBarBehavior.floating,
+              backgroundColor: colorScheme.surfaceContainerHighest,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+                side: BorderSide(
+                  color: success
+                      ? colorScheme.primary.withAlpha(80)
+                      : colorScheme.error.withAlpha(120),
+                ),
+              ),
+              content: Row(
+                children: [
+                  Icon(
+                    success ? Icons.check_circle_outline_rounded : Icons.error_outline_rounded,
+                    size: 20,
+                    color: success ? colorScheme.primary : colorScheme.error,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      success
+                          ? 'Backup folder configured! Initial 2-stage backup created.'
+                          : 'Failed to access folder. Ensure write permission or choose another folder.',
+                      style: TextStyle(color: colorScheme.onSurface),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        final colorScheme = Theme.of(context).colorScheme;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            behavior: SnackBarBehavior.floating,
+            backgroundColor: colorScheme.surfaceContainerHighest,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+              side: BorderSide(color: colorScheme.error.withAlpha(120)),
+            ),
+            content: Row(
+              children: [
+                Icon(Icons.error_outline_rounded, size: 20, color: colorScheme.error),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Error selecting folder: $e',
+                    style: TextStyle(color: colorScheme.onSurface),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _handleClearBackupDirectory() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Remove Backup Folder?'),
+        content: const Text(
+          'Automated 2-stage offline backups will be paused until a folder is selected again. Existing backup files in the folder will not be deleted.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Remove'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && mounted) {
+      await ref.read(settingsNotifierProvider.notifier).clearBackupDirectory();
+      final colorScheme = Theme.of(context).colorScheme;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: colorScheme.surfaceContainerHighest,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: BorderSide(color: colorScheme.outlineVariant.withAlpha(80)),
+          ),
+          content: Row(
+            children: [
+              Icon(Icons.folder_off_outlined, size: 20, color: colorScheme.onSurfaceVariant),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Backup folder disconnected.',
+                  style: TextStyle(color: colorScheme.onSurface),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+  }
+
+  Future<void> _handleManualOfflineBackup() async {
+    final settings = ref.read(settingsNotifierProvider);
+    if (settings.backupDirectoryPath == null || settings.backupDirectoryPath!.isEmpty) {
+      await _handlePickBackupDirectory();
+      return;
+    }
+
+    final success = await ref
+        .read(settingsNotifierProvider.notifier)
+        .triggerOfflineBackupNow();
+
+    if (mounted) {
+      final colorScheme = Theme.of(context).colorScheme;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: colorScheme.surfaceContainerHighest,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: BorderSide(
+              color: success
+                  ? colorScheme.primary.withAlpha(80)
+                  : colorScheme.error.withAlpha(120),
+            ),
+          ),
+          content: Row(
+            children: [
+              Icon(
+                success ? Icons.check_circle_outline_rounded : Icons.error_outline_rounded,
+                size: 20,
+                color: success ? colorScheme.primary : colorScheme.error,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  success
+                      ? 'Backup created successfully!'
+                      : 'Failed to create offline backup.',
+                  style: TextStyle(color: colorScheme.onSurface),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+  }
+
+  Future<void> _showRestoreFromFolderDialog(
+    BuildContext context,
+    OfflineBackupInfo info,
+    String folderPath,
+  ) async {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    if (!info.hasAnyBackup) {
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('No Backups Found'),
+          content: Text('No backup files were found in:\n$folderPath\n\nCreate a backup first.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('OK'),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+
+    String selectedFileName = info.hasCurrent
+        ? OfflineBackupService.currentBackupFileName
+        : OfflineBackupService.previousBackupFileName;
+
+    final selected = await showDialog<String>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          title: Row(
+            children: [
+              Icon(Icons.history_rounded, color: colorScheme.primary),
+              const SizedBox(width: 8),
+              const Text('Restore from Folder'),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Select which backup file to restore into your library:',
+                style: theme.textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant),
+              ),
+              const SizedBox(height: 12),
+              if (info.hasCurrent)
+                RadioListTile<String>(
+                  value: OfflineBackupService.currentBackupFileName,
+                  groupValue: selectedFileName,
+                  onChanged: (val) {
+                    if (val != null) setDialogState(() => selectedFileName = val);
+                  },
+                  title: const Text(
+                    'Current Backup',
+                    style: TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                  subtitle: Text(
+                    '${info.currentModified != null ? DateFormat.yMMMd().add_jms().format(info.currentModified!) : "Unknown date"} • ${_formatFileSize(info.currentSizeBytes)}',
+                    style: theme.textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
+                  ),
+                ),
+              if (info.hasPrevious)
+                RadioListTile<String>(
+                  value: OfflineBackupService.previousBackupFileName,
+                  groupValue: selectedFileName,
+                  onChanged: (val) {
+                    if (val != null) setDialogState(() => selectedFileName = val);
+                  },
+                  title: const Text(
+                    'Previous Backup',
+                    style: TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                  subtitle: Text(
+                    '${info.previousModified != null ? DateFormat.yMMMd().add_jms().format(info.previousModified!) : "Unknown date"} • ${_formatFileSize(info.previousSizeBytes)}',
+                    style: theme.textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
+                  ),
+                ),
+              const SizedBox(height: 8),
+              Text(
+                'Data will be merged via Last-Write-Wins (newer entries take precedence).',
+                style: theme.textTheme.labelSmall?.copyWith(color: colorScheme.onSurfaceVariant.withAlpha(180)),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, selectedFileName),
+              child: const Text('Restore'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (selected != null && mounted) {
+      final fullPath = folderPath.startsWith('content://')
+          ? folderPath
+          : p.join(folderPath, selected);
+      final count = await ref
+          .read(settingsNotifierProvider.notifier)
+          .restoreFromOfflineFile(fullPath, fileName: selected, folderUri: folderPath);
+
+      if (mounted) {
+        final colorScheme = Theme.of(context).colorScheme;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            behavior: SnackBarBehavior.floating,
+            backgroundColor: colorScheme.surfaceContainerHighest,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+              side: BorderSide(color: colorScheme.primary.withAlpha(80)),
+            ),
+            content: Row(
+              children: [
+                Icon(
+                  Icons.check_circle_outline_rounded,
+                  size: 20,
+                  color: colorScheme.primary,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Restored $count entries from $selected!',
+                    style: TextStyle(color: colorScheme.onSurface),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      }
+    }
+  }
+
+  static String _formatFileSize(int? bytes) {
+    if (bytes == null || bytes == 0) return '0 B';
+    if (bytes < 1024) return '$bytes B';
+    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
+    return '${(bytes / (1024 * 1024)).toStringAsFixed(2)} MB';
+  }
+
+  Future<void> _launchUrl(String urlString) async {
+    try {
+      final uri = Uri.parse(urlString);
+      final launched = await launchUrl(
+        uri,
+        mode: LaunchMode.externalApplication,
+      );
+      if (!launched && mounted) {
+        _showNotification('Could not open $urlString', isError: true);
+      }
+    } catch (e) {
+      if (mounted) {
+        _showNotification('Error opening link: $e', isError: true);
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final settings = ref.watch(settingsNotifierProvider);
     final exchangeRates = ref.watch(exchangeRatesNotifierProvider);
+    final updateState = ref.watch(updateNotifierProvider);
     final currentCurrencyOption = CurrencyHelper.getOption(settings.primaryCurrency);
 
     return Scaffold(
@@ -446,29 +806,29 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   ],
                 ),
                 if (_testConnectionResult != null) ...[
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 10),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     decoration: BoxDecoration(
-                      color: _testConnectionResult!.startsWith('Connection successful')
-                          ? LycorisColors.success.withAlpha(25)
-                          : colorScheme.errorContainer.withAlpha(50),
+                      color: _testConnectionSuccess == true
+                          ? colorScheme.surfaceContainerHigh
+                          : colorScheme.errorContainer.withAlpha(40),
                       borderRadius: BorderRadius.circular(10),
                       border: Border.all(
-                        color: _testConnectionResult!.startsWith('Connection successful')
-                            ? LycorisColors.success.withAlpha(120)
+                        color: _testConnectionSuccess == true
+                            ? colorScheme.primary.withAlpha(80)
                             : colorScheme.error.withAlpha(120),
                       ),
                     ),
                     child: Row(
                       children: [
                         Icon(
-                          _testConnectionResult!.startsWith('Connection successful')
-                              ? Icons.check_circle_rounded
+                          _testConnectionSuccess == true
+                              ? Icons.check_circle_outline_rounded
                               : Icons.error_outline_rounded,
-                          size: 18,
-                          color: _testConnectionResult!.startsWith('Connection successful')
-                              ? LycorisColors.success
+                          size: 16,
+                          color: _testConnectionSuccess == true
+                              ? colorScheme.primary
                               : colorScheme.error,
                         ),
                         const SizedBox(width: 8),
@@ -476,8 +836,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                           child: Text(
                             _testConnectionResult!,
                             style: theme.textTheme.bodySmall?.copyWith(
-                              color: _testConnectionResult!.startsWith('Connection successful')
-                                  ? LycorisColors.success
+                              color: _testConnectionSuccess == true
+                                  ? colorScheme.onSurface
                                   : colorScheme.error,
                               fontWeight: FontWeight.w600,
                             ),
@@ -511,7 +871,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     ),
                     child: Row(
                       children: [
-                        Icon(Icons.lock_rounded, size: 18, color: LycorisColors.success),
+                        Icon(Icons.lock_rounded, size: 18, color: colorScheme.primary),
                         const SizedBox(width: 10),
                         Expanded(
                           child: Text(
@@ -699,64 +1059,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   );
                 },
               ),
-
-              const SizedBox(height: 12),
-
-              // Live Rates Overview Matrix
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                decoration: BoxDecoration(
-                  color: colorScheme.surfaceContainerHigh,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: colorScheme.outlineVariant.withAlpha(60)),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          'CONVERSION BENCHMARK (BASE: 1 USD)',
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: colorScheme.onSurfaceVariant,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 0.8,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 6,
-                      children: CurrencyHelper.supportedCurrencies
-                          .where((c) => c.code != 'USD')
-                          .map((c) {
-                        final rate = exchangeRates.rates[c.code] ?? 1.0;
-                        final formattedRate = c.code == 'JPY'
-                            ? rate.toStringAsFixed(0)
-                            : rate.toStringAsFixed(2);
-                        return Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: colorScheme.surfaceContainer,
-                            borderRadius: BorderRadius.circular(6),
-                            border: Border.all(color: colorScheme.outlineVariant.withAlpha(40)),
-                          ),
-                          child: Text(
-                            '${c.code}: ${c.symbol}$formattedRate',
-                            style: theme.textTheme.labelSmall?.copyWith(
-                              color: colorScheme.onSurface,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        );
-                      }).toList(),
-                    ),
-                  ],
-                ),
-              ),
             ],
           ),
 
@@ -766,40 +1068,99 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           _buildCard(
             context: context,
             title: 'Google Drive Sync',
-            subtitle: 'Backup and restore library data via Google Drive.',
+            subtitle: 'Cloud backup with user-owned Google Drive storage.',
             icon: Icons.cloud_sync_rounded,
             children: [
-              if (settings.lastSyncedAt != null)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: Row(
-                    children: [
-                      Icon(Icons.schedule, size: 14, color: colorScheme.onSurfaceVariant),
-                      const SizedBox(width: 6),
-                      Text(
-                        'Last Synced: ${DateFormat.yMMMd().add_jms().format(settings.lastSyncedAt!)}',
-                        style: theme.textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
-                      ),
-                    ],
-                  ),
+              // Google Account Status - Clean email display with small logout icon
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                decoration: BoxDecoration(
+                  color: colorScheme.surfaceContainerHigh,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: colorScheme.outlineVariant.withAlpha(60)),
                 ),
-              if (settings.syncStatusMessage != null) ...[
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 10),
-                  child: Text(
-                    settings.syncStatusMessage!,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: colorScheme.primary,
-                      fontWeight: FontWeight.w600,
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.account_circle_outlined,
+                      size: 20,
+                      color: colorScheme.onSurfaceVariant,
                     ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        settings.isGoogleDriveSignedIn
+                            ? (settings.googleUserEmail ?? 'Connected')
+                            : 'Not signed in',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.w600,
+                          color: settings.isGoogleDriveSignedIn
+                              ? colorScheme.onSurface
+                              : colorScheme.onSurfaceVariant,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    if (settings.isGoogleDriveSignedIn)
+                      IconButton(
+                        icon: const Icon(Icons.logout_rounded, size: 18),
+                        tooltip: 'Logout',
+                        visualDensity: VisualDensity.compact,
+                        color: colorScheme.onSurfaceVariant,
+                        onPressed: () => ref.read(settingsNotifierProvider.notifier).signOutGoogleDrive(),
+                      )
+                    else
+                      TextButton(
+                        style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
+                        onPressed: () => ref.read(settingsNotifierProvider.notifier).signInGoogleDrive(),
+                        child: const Text('Sign In'),
+                      ),
+                  ],
+                ),
+              ),
+
+              if (settings.lastSyncedAt != null) ...[
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Icon(Icons.schedule, size: 14, color: colorScheme.onSurfaceVariant),
+                    const SizedBox(width: 6),
+                    Text(
+                      'Last Cloud Sync: ${DateFormat.yMMMd().add_jms().format(settings.lastSyncedAt!)}',
+                      style: theme.textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
+                    ),
+                  ],
+                ),
+              ],
+
+              if (settings.syncStatusMessage != null) ...[
+                const SizedBox(height: 8),
+                Text(
+                  settings.syncStatusMessage!,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: colorScheme.primary,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ],
+
+              const SizedBox(height: 14),
+
               Row(
                 children: [
                   Expanded(
                     child: OutlinedButton.icon(
-                      icon: const Icon(Icons.cloud_upload_outlined, size: 18),
+                      icon: settings.isSyncing
+                          ? SizedBox(
+                              width: 14,
+                              height: 14,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: colorScheme.primary,
+                              ),
+                            )
+                          : const Icon(Icons.cloud_upload_outlined, size: 18),
                       label: const Text('Backup'),
                       onPressed: settings.isSyncing
                           ? null
@@ -809,7 +1170,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   const SizedBox(width: 12),
                   Expanded(
                     child: OutlinedButton.icon(
-                      icon: const Icon(Icons.cloud_download_outlined, size: 18),
+                      icon: settings.isSyncing
+                          ? SizedBox(
+                              width: 14,
+                              height: 14,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: colorScheme.primary,
+                              ),
+                            )
+                          : const Icon(Icons.cloud_download_outlined, size: 18),
                       label: const Text('Restore'),
                       onPressed: settings.isSyncing
                           ? null
@@ -827,27 +1197,178 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           _buildCard(
             context: context,
             title: 'Offline JSON Backup',
-            subtitle: 'Export or import library data offline.',
-            icon: Icons.folder_zip_outlined,
+            subtitle: 'Automated 2-stage rotating local backup.',
+            icon: Icons.folder_copy_outlined,
             children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      icon: const Icon(Icons.content_copy_rounded, size: 18),
-                      label: const Text('Copy JSON'),
-                      onPressed: _handleFileExport,
-                    ),
+              if (settings.backupDirectoryPath != null) ...[
+                // Folder Status Container
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: colorScheme.surfaceContainerHigh,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: colorScheme.outlineVariant.withAlpha(60)),
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      icon: const Icon(Icons.file_open_rounded, size: 18),
-                      label: const Text('Import JSON'),
-                      onPressed: _handleFileImport,
-                    ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(Icons.folder_open_rounded, color: colorScheme.primary, size: 20),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              _formatDirectoryDisplay(settings.backupDirectoryPath!),
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: colorScheme.onSurface,
+                                fontWeight: FontWeight.w600,
+                              ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.edit_outlined, size: 18),
+                            tooltip: 'Change Folder',
+                            onPressed: _handlePickBackupDirectory,
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.close_rounded, size: 18),
+                            tooltip: 'Disconnect Folder',
+                            onPressed: _handleClearBackupDirectory,
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      // Current and Previous status details
+                      Builder(
+                        builder: (context) {
+                          final info = settings.offlineBackupInfo ?? OfflineBackupInfo.empty;
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                '• Current: ${info.hasCurrent ? "${info.currentModified != null ? DateFormat.yMMMd().add_jm().format(info.currentModified!) : "Ready"} (${_formatFileSize(info.currentSizeBytes)})" : "None yet"}',
+                                style: theme.textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                '• Previous: ${info.hasPrevious ? "${info.previousModified != null ? DateFormat.yMMMd().add_jm().format(info.previousModified!) : "Saved"} (${_formatFileSize(info.previousSizeBytes)})" : "None yet"}',
+                                style: theme.textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
+                              ),
+                            ],
+                          );
+                        },
+                      ),
+                    ],
                   ),
-                ],
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: FilledButton.icon(
+                        icon: settings.isOfflineBackingUp
+                            ? SizedBox(
+                                width: 14,
+                                height: 14,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: colorScheme.onPrimary,
+                                ),
+                              )
+                            : const Icon(Icons.backup_rounded, size: 18),
+                        label: const Text('Backup Now'),
+                        onPressed: settings.isOfflineBackingUp ? null : _handleManualOfflineBackup,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        icon: const Icon(Icons.history_rounded, size: 18),
+                        label: const Text('Restore...'),
+                        onPressed: () {
+                          final info = settings.offlineBackupInfo ?? OfflineBackupInfo.empty;
+                          _showRestoreFromFolderDialog(
+                            context,
+                            info,
+                            settings.backupDirectoryPath!,
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ] else ...[
+                // Unconfigured State Banner
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: colorScheme.surfaceContainerHigh,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: colorScheme.outlineVariant.withAlpha(60)),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.folder_special_outlined, size: 28, color: colorScheme.primary),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          'Select a folder on your phone to automatically keep 2 rotating JSON backups and cloud sync on database changes.',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: colorScheme.onSurfaceVariant,
+                            height: 1.35,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: FilledButton.icon(
+                        icon: const Icon(Icons.folder_open_rounded, size: 18),
+                        label: const Text('Select Folder'),
+                        onPressed: _handlePickBackupDirectory,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        icon: const Icon(Icons.backup_rounded, size: 18),
+                        label: const Text('Backup Now'),
+                        onPressed: _handleManualOfflineBackup,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+
+              if (settings.offlineBackupStatusMessage != null) ...[
+                const SizedBox(height: 8),
+                Text(
+                  settings.offlineBackupStatusMessage!,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: colorScheme.primary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+
+              const SizedBox(height: 14),
+              Divider(color: colorScheme.outlineVariant.withAlpha(40), height: 1),
+              const SizedBox(height: 12),
+
+              // Manual Portability - Import File Only (Copy JSON removed)
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  icon: const Icon(Icons.file_open_rounded, size: 18),
+                  label: const Text('Import'),
+                  onPressed: _handleFileImport,
+                ),
               ),
             ],
           ),
@@ -899,9 +1420,148 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ],
           ),
 
+          const SizedBox(height: 14),
+
+          // 7. About & Legal
+          _buildCard(
+            context: context,
+            title: 'About & Legal',
+            subtitle: 'Release notes, developer showcase, and terms.',
+            icon: Icons.info_outline_rounded,
+            children: [
+              // 1. What's New
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: colorScheme.primaryContainer.withAlpha(120),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(Icons.auto_awesome_rounded, color: colorScheme.primary, size: 20),
+                ),
+                title: const Text(
+                  "What's New",
+                  style: TextStyle(fontWeight: FontWeight.w700),
+                ),
+                subtitle: Text(
+                  'Release notes and latest changes',
+                  style: theme.textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
+                ),
+                trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const MarkdownViewerScreen(
+                        title: "What's New",
+                        assetPath: 'RELEASE_NOTES.md',
+                      ),
+                    ),
+                  );
+                },
+              ),
+
+              Divider(color: colorScheme.outlineVariant.withAlpha(50), height: 16),
+
+              // 2. View More Apps by Me
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: colorScheme.primaryContainer.withAlpha(120),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(Icons.apps_rounded, color: colorScheme.primary, size: 20),
+                ),
+                title: const Text(
+                  'View More Apps by Me',
+                  style: TextStyle(fontWeight: FontWeight.w700),
+                ),
+                subtitle: Text(
+                  'https://ytfl.github.io/',
+                  style: theme.textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
+                ),
+                trailing: const Icon(Icons.open_in_new_rounded, size: 16),
+                onTap: () => _launchUrl('https://ytfl.github.io/'),
+              ),
+
+              Divider(color: colorScheme.outlineVariant.withAlpha(50), height: 16),
+
+              // 3. Terms and Conditions
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: colorScheme.primaryContainer.withAlpha(120),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(Icons.description_outlined, color: colorScheme.primary, size: 20),
+                ),
+                title: const Text(
+                  'Terms and Conditions',
+                  style: TextStyle(fontWeight: FontWeight.w700),
+                ),
+                subtitle: Text(
+                  'AGPL-3.0 License & terms of service',
+                  style: theme.textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
+                ),
+                trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const MarkdownViewerScreen(
+                        title: 'Terms and Conditions',
+                        assetPath: 'docs/terms.md',
+                      ),
+                    ),
+                  );
+                },
+              ),
+
+              Divider(color: colorScheme.outlineVariant.withAlpha(50), height: 16),
+
+              // 4. Privacy Policy
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: colorScheme.primaryContainer.withAlpha(120),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(Icons.privacy_tip_outlined, color: colorScheme.primary, size: 20),
+                ),
+                title: const Text(
+                  'Privacy Policy',
+                  style: TextStyle(fontWeight: FontWeight.w700),
+                ),
+                subtitle: Text(
+                  'Zero telemetry & local data sovereignty',
+                  style: theme.textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
+                ),
+                trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const MarkdownViewerScreen(
+                        title: 'Privacy Policy',
+                        assetPath: 'docs/privacy.md',
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ],
+          ),
+
           const SizedBox(height: 24),
 
-          // 6. About Lycoris
+          // 8. About Lycoris
           Center(
             child: Column(
               children: [
@@ -916,13 +1576,57 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  'v1.0.0 • com.ytfl.lycoris',
+                  'v${updateState.currentVersion} • com.ytfl.lycoris',
                   style: theme.textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  'Offline-first gaming library & investment ROI tracker',
-                  style: theme.textTheme.labelSmall?.copyWith(color: colorScheme.onSurfaceVariant.withAlpha(160)),
+                const SizedBox(height: 12),
+                OutlinedButton.icon(
+                  onPressed: updateState.isChecking
+                      ? null
+                      : () async {
+                          final update = await ref
+                              .read(updateNotifierProvider.notifier)
+                              .checkForUpdatesManual(context);
+                          if (!context.mounted) return;
+                          if (update == null) {
+                            _showNotification('You are on the latest version.', icon: Icons.check_circle_outline_rounded);
+                          }
+                        },
+                  style: OutlinedButton.styleFrom(
+                    visualDensity: VisualDensity.compact,
+                    side: BorderSide(
+                      color: updateState.availableUpdate != null
+                          ? colorScheme.primary
+                          : colorScheme.outlineVariant,
+                    ),
+                  ),
+                  icon: updateState.isChecking
+                      ? const SizedBox(
+                          width: 14,
+                          height: 14,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : Icon(
+                          updateState.availableUpdate != null
+                              ? Icons.system_update_rounded
+                              : Icons.refresh_rounded,
+                          size: 16,
+                          color: colorScheme.primary,
+                        ),
+                  label: Text(
+                    updateState.isChecking
+                        ? 'Checking...'
+                        : updateState.availableUpdate != null
+                            ? 'Update Available (${updateState.availableUpdate!.versionInfo})'
+                            : 'Check for Updates',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 12,
+                      color: updateState.availableUpdate != null
+                          ? colorScheme.primary
+                          : colorScheme.onSurface,
+                    ),
+                  ),
                 ),
               ],
             ),

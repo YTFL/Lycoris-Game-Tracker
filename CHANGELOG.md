@@ -51,7 +51,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Configurable proxy URL toggle in Settings.
 - **Community & Documentation**:
   - Comprehensive documentation suite: [RELEASE_NOTES.md](RELEASE_NOTES.md), [CONTRIBUTING.md](CONTRIBUTING.md), [README.md](README.md).
+  - Bundled offline documentation (`docs/terms.md`, `docs/privacy.md`, and `RELEASE_NOTES.md`).
   - Standardized GitHub issue templates for bug reports and feature requests.
   - Structured GitHub pull request template.
+- **Settings & In-App Documentation**:
+  - New "About & Legal" settings hub featuring direct access to:
+    - **What's New**: In-app markdown viewer rendering release notes.
+    - **View More Apps by Me**: External browser link to `https://ytfl.github.io/`.
+    - **Terms and Conditions**: Native markdown rendering of the AGPL-3.0 terms of service.
+    - **Privacy Policy**: Native markdown rendering of verified zero-telemetry policy.
+  - Reusable, theme-aware in-app markdown viewer (`MarkdownViewerScreen`) with selectable text, link interception, and responsive design.
+- **Automated GitHub Updates & In-App Installer**:
+  - In-app update checker querying `update.json` on raw GitHub with automatic fallback to GitHub Releases API (`/releases/latest`).
+  - Silent background check on app launch with 24-hour deferral reminder support.
+  - On-demand "Check for Updates" action button in **Settings > About Lycoris** with real-time status indication.
+  - High-performance APK download engine via Dio with chunked disk streaming and animated percentage progress bar.
+  - Native Android package installer integration via MethodChannel, `FileProvider`, and Android 8+ `REQUEST_INSTALL_PACKAGES` permission handling.
+  - Fullscreen Spider Lily styled `UpdateScreen` with version comparison card, release date indicator, and markdown release notes rendering.
+  - Automatic cleanup of downloaded update packages upon completion or when running the latest version.
 
 [1.0.0]: https://github.com/YTFL/Lycoris-Game-Tracker/releases/tag/v1.0.0

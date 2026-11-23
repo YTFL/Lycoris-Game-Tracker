@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../analytics/presentation/screens/analytics_dashboard.dart';
 import '../../../rankings/presentation/screens/rankings_screen.dart';
+import '../../../sync/presentation/controllers/settings_notifier.dart';
 import '../../../sync/presentation/screens/settings_screen.dart';
 import '../../../tracker/presentation/screens/library_screen.dart';
 import '../../../search/presentation/screens/game_search_screen.dart';
+import '../../../update/presentation/controllers/update_notifier.dart';
 
 import '../controllers/home_nav_provider.dart';
 
@@ -22,6 +24,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     AnalyticsDashboard(),
     SettingsScreen(),
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(backupCoordinatorProvider).initialize();
+      ref.read(updateNotifierProvider.notifier).checkSilentlyOnLaunch(context);
+    });
+  }
 
   @override
   Widget build(BuildContext context) {

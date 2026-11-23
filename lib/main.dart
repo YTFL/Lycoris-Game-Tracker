@@ -97,6 +97,18 @@ class LycorisApp extends StatelessWidget {
             borderRadius: BorderRadius.circular(16),
           ),
         ),
+        snackBarTheme: SnackBarThemeData(
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: materialYouColorScheme.surfaceContainerHighest,
+          contentTextStyle: TextStyle(
+            color: materialYouColorScheme.onSurface,
+            fontWeight: FontWeight.w500,
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: BorderSide(color: materialYouColorScheme.outlineVariant.withAlpha(80)),
+          ),
+        ),
       ),
       home: const HomeScreen(),
     );
