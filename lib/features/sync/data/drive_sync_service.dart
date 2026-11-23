@@ -86,10 +86,6 @@ class DriveSyncService {
     return _cachedDriveClient;
   }
 
-  /// Backward-compatible private alias
-  Future<drive.DriveApi?> _getDriveClient({bool interactiveIfNeeded = false}) =>
-      getDriveClient(interactiveIfNeeded: interactiveIfNeeded);
-
   /// Locates existing 'Lycoris' folder or creates one at Drive root
   Future<String?> _getOrCreateBackupFolder(drive.DriveApi driveApi) async {
     final folderList = await driveApi.files.list(

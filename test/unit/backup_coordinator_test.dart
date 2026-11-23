@@ -6,7 +6,6 @@ import 'package:lycoris/features/sync/data/backup_coordinator.dart';
 import 'package:lycoris/features/sync/data/drive_sync_service.dart';
 import 'package:lycoris/features/sync/data/offline_backup_service.dart';
 import 'package:lycoris/features/sync/data/settings_repository.dart';
-import 'package:lycoris/features/tracker/domain/models/additional_expense.dart';
 import 'package:lycoris/features/tracker/domain/models/game_entry.dart';
 import 'package:lycoris/features/tracker/domain/models/game_status.dart';
 import 'package:lycoris/features/tracker/domain/models/storefront.dart';

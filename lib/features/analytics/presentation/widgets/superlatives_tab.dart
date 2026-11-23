@@ -236,7 +236,7 @@ class SuperlativesTab extends StatelessWidget {
                         width: 44,
                         height: 58,
                         fit: BoxFit.cover,
-                        errorWidget: (_, __, ___) => Container(
+                        errorWidget: (context, url, error) => Container(
                           width: 44,
                           height: 58,
                           color: colorScheme.surfaceContainerHighest,

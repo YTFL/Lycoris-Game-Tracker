@@ -162,7 +162,7 @@ class BacklogPipelineTab extends StatelessWidget {
                 width: 44,
                 height: 60,
                 fit: BoxFit.cover,
-                errorWidget: (_, __, ___) => Container(
+                errorWidget: (context, url, error) => Container(
                   width: 44,
                   height: 60,
                   color: colorScheme.surfaceContainerHighest,

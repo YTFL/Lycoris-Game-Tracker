@@ -448,6 +448,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
     if (confirmed == true && mounted) {
       await ref.read(settingsNotifierProvider.notifier).clearBackupDirectory();
+      if (!mounted) return;
       final colorScheme = Theme.of(context).colorScheme;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -523,7 +524,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }
 
   Future<void> _showRestoreFromFolderDialog(
-    BuildContext context,
     OfflineBackupInfo info,
     String folderPath,
   ) async {
@@ -571,38 +571,41 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 style: theme.textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant),
               ),
               const SizedBox(height: 12),
-              if (info.hasCurrent)
-                RadioListTile<String>(
-                  value: OfflineBackupService.currentBackupFileName,
-                  groupValue: selectedFileName,
-                  onChanged: (val) {
-                    if (val != null) setDialogState(() => selectedFileName = val);
-                  },
-                  title: const Text(
-                    'Current Backup',
-                    style: TextStyle(fontWeight: FontWeight.w700),
-                  ),
-                  subtitle: Text(
-                    '${info.currentModified != null ? DateFormat.yMMMd().add_jms().format(info.currentModified!) : "Unknown date"} • ${_formatFileSize(info.currentSizeBytes)}',
-                    style: theme.textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
-                  ),
+              RadioGroup<String>(
+                groupValue: selectedFileName,
+                onChanged: (val) {
+                  if (val != null) setDialogState(() => selectedFileName = val);
+                },
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (info.hasCurrent)
+                      RadioListTile<String>(
+                        value: OfflineBackupService.currentBackupFileName,
+                        title: const Text(
+                          'Current Backup',
+                          style: TextStyle(fontWeight: FontWeight.w700),
+                        ),
+                        subtitle: Text(
+                          '${info.currentModified != null ? DateFormat.yMMMd().add_jms().format(info.currentModified!) : "Unknown date"} • ${_formatFileSize(info.currentSizeBytes)}',
+                          style: theme.textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
+                        ),
+                      ),
+                    if (info.hasPrevious)
+                      RadioListTile<String>(
+                        value: OfflineBackupService.previousBackupFileName,
+                        title: const Text(
+                          'Previous Backup',
+                          style: TextStyle(fontWeight: FontWeight.w700),
+                        ),
+                        subtitle: Text(
+                          '${info.previousModified != null ? DateFormat.yMMMd().add_jms().format(info.previousModified!) : "Unknown date"} • ${_formatFileSize(info.previousSizeBytes)}',
+                          style: theme.textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
+                        ),
+                      ),
+                  ],
                 ),
-              if (info.hasPrevious)
-                RadioListTile<String>(
-                  value: OfflineBackupService.previousBackupFileName,
-                  groupValue: selectedFileName,
-                  onChanged: (val) {
-                    if (val != null) setDialogState(() => selectedFileName = val);
-                  },
-                  title: const Text(
-                    'Previous Backup',
-                    style: TextStyle(fontWeight: FontWeight.w700),
-                  ),
-                  subtitle: Text(
-                    '${info.previousModified != null ? DateFormat.yMMMd().add_jms().format(info.previousModified!) : "Unknown date"} • ${_formatFileSize(info.previousSizeBytes)}',
-                    style: theme.textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
-                  ),
-                ),
+              ),
               const SizedBox(height: 8),
               Text(
                 'Data will be merged via Last-Write-Wins (newer entries take precedence).',
@@ -1290,7 +1293,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         onPressed: () {
                           final info = settings.offlineBackupInfo ?? OfflineBackupInfo.empty;
                           _showRestoreFromFolderDialog(
-                            context,
                             info,
                             settings.backupDirectoryPath!,
                           );

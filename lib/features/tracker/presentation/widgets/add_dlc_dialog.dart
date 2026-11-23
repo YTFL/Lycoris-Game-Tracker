@@ -325,7 +325,7 @@ class _AddDlcDialogState extends ConsumerState<AddDlcDialog> {
                                           width: 24,
                                           height: 32,
                                           fit: BoxFit.cover,
-                                          errorWidget: (_, __, ___) =>
+                                          errorWidget: (context, url, error) =>
                                               const Icon(Icons.extension_rounded, size: 20),
                                         ),
                                       )

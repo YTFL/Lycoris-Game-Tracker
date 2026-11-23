@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive/hive.dart';
 import '../../tracker/domain/models/game_entry.dart';
 import 'drive_sync_service.dart';
@@ -21,14 +20,11 @@ class BackupCoordinator {
   bool _isInitialized = false;
 
   BackupCoordinator({
-    required SettingsRepository settingsRepo,
-    required OfflineBackupService offlineService,
-    required DriveSyncService driveService,
-    required Box<GameEntry> gamesBox,
-  })  : _settingsRepo = settingsRepo,
-        _offlineService = offlineService,
-        _driveService = driveService,
-        _gamesBox = gamesBox;
+    required this._settingsRepo,
+    required this._offlineService,
+    required this._driveService,
+    required this._gamesBox,
+  });
 
   /// Start listening to Hive database mutations
   void initialize() {
