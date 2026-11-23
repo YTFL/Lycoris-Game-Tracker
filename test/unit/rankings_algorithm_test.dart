@@ -397,5 +397,122 @@ void main() {
       expect(retrieved.comparisonCount, equals(7));
       expect(retrieved.isCalibrated, isTrue);
     });
+
+    test('Initial Elo seeds proportionally from personalRating', () {
+      final games = [
+        GameEntry(
+          id: 'g1',
+          igdbId: 1,
+          title: 'Masterpiece',
+          genres: [],
+          storefront: Storefront.steam,
+          status: GameStatus.completed,
+          personalRating: 10.0,
+          totalMinutesPlayed: 100,
+          addedAt: DateTime.now(),
+          updatedAt: DateTime.now(),
+        ),
+        GameEntry(
+          id: 'g2',
+          igdbId: 2,
+          title: 'Great Game',
+          genres: [],
+          storefront: Storefront.steam,
+          status: GameStatus.completed,
+          personalRating: 8.5,
+          totalMinutesPlayed: 100,
+          addedAt: DateTime.now(),
+          updatedAt: DateTime.now(),
+        ),
+        GameEntry(
+          id: 'g3',
+          igdbId: 3,
+          title: 'Unrated Game',
+          genres: [],
+          storefront: Storefront.steam,
+          status: GameStatus.completed,
+          personalRating: 0.0,
+          totalMinutesPlayed: 100,
+          addedAt: DateTime.now(),
+          updatedAt: DateTime.now(),
+        ),
+      ];
+
+      final notifier = RankingsNotifier(repo, games, null);
+      final r1 = notifier.state.rankingDataMap['igdb_1']!;
+      final r2 = notifier.state.rankingDataMap['igdb_2']!;
+      final r3 = notifier.state.rankingDataMap['igdb_3']!;
+
+      // 800 + 10.0 * 80 = 1600.0
+      expect(r1.eloRating, closeTo(1600.0, 0.001));
+      // 800 + 8.5 * 80 = 1480.0
+      expect(r2.eloRating, closeTo(1480.0, 0.001));
+      // Unrated defaults to 1200.0
+      expect(r3.eloRating, closeTo(1200.0, 0.001));
+    });
+
+    test('startRankNewGames continues past 3 comparisons until session target is reached', () async {
+      // Create library of 5 established games
+      final establishedGames = List.generate(5, (i) {
+        return GameEntry(
+          id: 'est_$i',
+          igdbId: 100 + i,
+          title: 'Established Game $i',
+          genres: [],
+          storefront: Storefront.steam,
+          status: GameStatus.completed,
+          personalRating: 8.0,
+          totalMinutesPlayed: 500,
+          addedAt: DateTime.now(),
+          updatedAt: DateTime.now(),
+        );
+      });
+
+      // Save established ranking data with comparisonCount = 5 each
+      for (int i = 0; i < 5; i++) {
+        await repo.saveRanking(
+          GameRankingData(
+            canonicalKey: 'igdb_${100 + i}',
+            eloRating: 1400.0 + (i * 20),
+            comparisonCount: 5,
+          ),
+        );
+      }
+
+      // Add 1 new unranked game
+      final newGame = GameEntry(
+        id: 'new_1',
+        igdbId: 999,
+        title: 'Brand New Title',
+        genres: [],
+        storefront: Storefront.steam,
+        status: GameStatus.completed,
+        personalRating: 9.0,
+        totalMinutesPlayed: 300,
+        addedAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+      );
+
+      final allGames = [...establishedGames, newGame];
+      final notifier = RankingsNotifier(repo, allGames, null);
+
+      expect(notifier.state.newUnrankedGames.length, equals(1));
+      notifier.startRankNewGames();
+
+      expect(notifier.state.isComparisonActive, isTrue);
+      expect(notifier.state.totalComparisonsInSession, greaterThanOrEqualTo(5));
+
+      // Play 4 comparisons
+      for (int step = 0; step < 4; step++) {
+        if (!notifier.state.isComparisonActive) break;
+        await notifier.recordChoice(RankingChoice.aWins);
+      }
+
+      // The new game should have reached comparisonCount = 4 and session should still be active
+      final newGameData = notifier.state.rankingDataMap['igdb_999']!;
+      expect(newGameData.comparisonCount, equals(4));
+      // Crucial: The session did NOT abort early at 3 comparisons!
+      expect(notifier.state.isComparisonActive, isTrue);
+    });
   });
 }

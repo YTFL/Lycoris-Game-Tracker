@@ -24,6 +24,7 @@ class RankingsState {
   final bool isComparisonActive;
   final bool isRankingOnlyNewGames;
   final List<CanonicalGame> newUnrankedGames;
+  final List<String> activeNewGameKeys;
   final List<ComparisonRecord> comparisonHistory;
 
   const RankingsState({
@@ -35,6 +36,7 @@ class RankingsState {
     this.isComparisonActive = false,
     this.isRankingOnlyNewGames = false,
     this.newUnrankedGames = const [],
+    this.activeNewGameKeys = const [],
     this.comparisonHistory = const [],
   });
 
@@ -105,6 +107,7 @@ class RankingsState {
     bool? isComparisonActive,
     bool? isRankingOnlyNewGames,
     List<CanonicalGame>? newUnrankedGames,
+    List<String>? activeNewGameKeys,
     List<ComparisonRecord>? comparisonHistory,
   }) {
     return RankingsState(
@@ -116,6 +119,7 @@ class RankingsState {
       isComparisonActive: isComparisonActive ?? this.isComparisonActive,
       isRankingOnlyNewGames: isRankingOnlyNewGames ?? this.isRankingOnlyNewGames,
       newUnrankedGames: newUnrankedGames ?? this.newUnrankedGames,
+      activeNewGameKeys: activeNewGameKeys ?? this.activeNewGameKeys,
       comparisonHistory: comparisonHistory ?? this.comparisonHistory,
     );
   }

@@ -83,9 +83,10 @@ void main() {
     expect(find.text('Pacing & Game Flow'), findsOneWidget);
     expect(find.text('Emotional Impact & Memorability'), findsOneWidget);
 
-    // 3. Verify initially evenly matched
-    expect(find.text('Evenly matched (0 - 0)'), findsOneWidget);
-    expect(find.text('Choose Draw'), findsOneWidget);
+    // 3. Verify Continue button is present and lead ticker is absent
+    expect(find.text('Continue'), findsOneWidget);
+    expect(find.textContaining('takes the lead'), findsNothing);
+    expect(find.textContaining('Evenly matched'), findsNothing);
 
     // 4. Tap Elden Ring on Gameplay (the first 'Elden Ring' choice pill in the list)
     final eldenRingPills = find.widgetWithText(InkWell, 'Elden Ring');
@@ -95,12 +96,12 @@ void main() {
     await tester.tap(eldenRingPills.first);
     await tester.pumpAndSettle();
 
-    // Now Elden Ring should take the lead!
-    expect(find.text('Elden Ring takes the lead (1 to 0)'), findsOneWidget);
-    expect(find.text('Choose Elden Ring'), findsOneWidget);
+    // Verify lead ticker remains absent and button says Continue
+    expect(find.textContaining('takes the lead'), findsNothing);
+    expect(find.text('Continue'), findsOneWidget);
 
     // 5. Confirm choice and verify returned value
-    await tester.tap(find.text('Choose Elden Ring'));
+    await tester.tap(find.text('Continue'));
     await tester.pumpAndSettle();
 
     expect(returnedChoice, equals(RankingChoice.aWins));

@@ -20,10 +20,10 @@ void main() {
         ),
       );
 
-      // Verify title & initial unrated state
+      // Verify title & initial unrated state without revealing numerical score
       expect(find.text('Help Me Rate'), findsOneWidget);
       expect(find.text('Chrono Trigger'), findsOneWidget);
-      expect(find.text('Unrated'), findsOneWidget);
+      expect(find.text('Rate Dimensions'), findsOneWidget);
       expect(find.text('Rate dimensions below from 1 to 10 stars'), findsOneWidget);
 
       // Verify all 9 comparison dimensions are present
@@ -71,12 +71,12 @@ void main() {
       await tester.tap(find.byKey(const Key('star_gameplay_9')));
       await tester.pumpAndSettle();
 
-      // Ticker should update to 9.0 / 10.0 with 1 dimension rated
-      expect(find.text('9.0 / 10.0'), findsOneWidget);
-      expect(find.text('1 of 9 dimensions rated (rounded to nearest 0.5)'), findsOneWidget);
+      // Ticker should update to dimension count without revealing average score
+      expect(find.text('1 of 9 dimensions rated'), findsOneWidget);
+      expect(find.text('9.0 / 10.0'), findsNothing);
 
-      // Apply button should now be enabled and say 'Apply Rating (9.0 / 10)'
-      final applyFinder = find.widgetWithText(FilledButton, 'Apply Rating (9.0 / 10)');
+      // Apply button should now be enabled and say 'Apply Rating' (without numerical average)
+      final applyFinder = find.widgetWithText(FilledButton, 'Apply Rating');
       expect(applyFinder, findsOneWidget);
 
       await tester.tap(applyFinder);

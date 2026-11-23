@@ -149,7 +149,7 @@ class _HelpMeRateSheetState extends State<HelpMeRateSheet> {
           ),
           const SizedBox(height: 10),
 
-          // Live Overall Score Ticker
+          // Dimension Progress Ticker (Hides numerical average to avoid score manipulation)
           Container(
             margin: const EdgeInsets.symmetric(horizontal: 16),
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -157,7 +157,7 @@ class _HelpMeRateSheetState extends State<HelpMeRateSheet> {
               color: colorScheme.surfaceContainerHigh,
               borderRadius: BorderRadius.circular(14),
               border: Border.all(
-                color: currentScore > 0
+                color: _ratedCount > 0
                     ? colorScheme.secondary.withAlpha(120)
                     : colorScheme.outlineVariant.withAlpha(60),
               ),
@@ -165,8 +165,8 @@ class _HelpMeRateSheetState extends State<HelpMeRateSheet> {
             child: Row(
               children: [
                 Icon(
-                  currentScore > 0 ? Icons.star_rounded : Icons.star_outline_rounded,
-                  color: currentScore > 0 ? colorScheme.secondary : colorScheme.onSurfaceVariant,
+                  _ratedCount > 0 ? Icons.star_rounded : Icons.star_outline_rounded,
+                  color: _ratedCount > 0 ? colorScheme.secondary : colorScheme.onSurfaceVariant,
                   size: 28,
                 ),
                 const SizedBox(width: 12),
@@ -175,18 +175,18 @@ class _HelpMeRateSheetState extends State<HelpMeRateSheet> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        currentScore > 0
-                            ? '${currentScore.toStringAsFixed(1)} / 10.0'
-                            : 'Unrated',
+                        _ratedCount > 0
+                            ? '$_ratedCount of $totalMetrics dimensions rated'
+                            : 'Rate Dimensions',
                         style: theme.textTheme.titleMedium?.copyWith(
                           fontWeight: FontWeight.w900,
-                          color: currentScore > 0 ? colorScheme.secondary : colorScheme.onSurface,
+                          color: _ratedCount > 0 ? colorScheme.secondary : colorScheme.onSurface,
                         ),
                       ),
                       const SizedBox(height: 2),
                       Text(
                         _ratedCount > 0
-                            ? '$_ratedCount of $totalMetrics dimensions rated (rounded to nearest 0.5)'
+                            ? 'Rate each dimension based on your genuine experience'
                             : 'Rate dimensions below from 1 to 10 stars',
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: colorScheme.onSurfaceVariant,
@@ -245,7 +245,7 @@ class _HelpMeRateSheetState extends State<HelpMeRateSheet> {
                     ),
                     child: Text(
                       currentScore > 0
-                          ? 'Apply Rating (${currentScore.toStringAsFixed(1)} / 10)'
+                          ? 'Apply Rating'
                           : 'Rate dimensions to calculate',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,

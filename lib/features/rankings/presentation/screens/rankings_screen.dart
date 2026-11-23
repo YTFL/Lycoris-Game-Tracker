@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../home/presentation/controllers/home_nav_provider.dart';
+import '../../../tracker/presentation/controllers/library_notifier.dart';
 import '../../../tracker/presentation/screens/dossier_screen.dart';
+import '../../domain/models/canonical_game.dart';
 import '../controllers/rankings_notifier.dart';
 import '../controllers/rankings_state.dart';
+import '../widgets/pre_rank_rating_sheet.dart';
 import '../widgets/ranking_comparison_view.dart';
 import '../widgets/ranking_list_tile.dart';
 import '../widgets/ranking_top5_showcase.dart';
@@ -136,9 +139,13 @@ class _RankingsScreenState extends ConsumerState<RankingsScreen> {
               icon: const Icon(Icons.more_vert_rounded),
               onSelected: (value) {
                 if (value == 'rank_more') {
-                  notifier.startInitialRanking();
+                  _ensureRatedAndStart(
+                    context,
+                    state.canonicalGames,
+                    () => notifier.startInitialRanking(),
+                  );
                 } else if (value == 'rerank_all') {
-                  _showRerankConfirmation(context, notifier);
+                  _showRerankConfirmation(context, notifier, state.canonicalGames);
                 }
               },
               itemBuilder: (ctx) => [
@@ -214,7 +221,11 @@ class _RankingsScreenState extends ConsumerState<RankingsScreen> {
                           ),
                           const SizedBox(width: 8),
                           FilledButton(
-                            onPressed: () => notifier.startRankNewGames(),
+                            onPressed: () => _ensureRatedAndStart(
+                              context,
+                              state.newUnrankedGames,
+                              () => notifier.startRankNewGames(),
+                            ),
                             style: FilledButton.styleFrom(
                               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                               visualDensity: VisualDensity.compact,
@@ -260,7 +271,11 @@ class _RankingsScreenState extends ConsumerState<RankingsScreen> {
             ),
       floatingActionButton: state.hasRankings
           ? FloatingActionButton.extended(
-              onPressed: () => notifier.startInitialRanking(),
+              onPressed: () => _ensureRatedAndStart(
+                context,
+                state.canonicalGames,
+                () => notifier.startInitialRanking(),
+              ),
               icon: const Icon(Icons.compare_arrows_rounded),
               label: const Text(
                 'Rank More',
@@ -274,6 +289,7 @@ class _RankingsScreenState extends ConsumerState<RankingsScreen> {
   Widget _buildUnrankedWelcome(BuildContext context, RankingsNotifier notifier, int eligibleCount) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final state = ref.watch(rankingsNotifierProvider);
 
     return Center(
       child: Padding(
@@ -317,7 +333,11 @@ class _RankingsScreenState extends ConsumerState<RankingsScreen> {
             ),
             const SizedBox(height: 28),
             FilledButton.icon(
-              onPressed: () => notifier.startInitialRanking(),
+              onPressed: () => _ensureRatedAndStart(
+                context,
+                state.canonicalGames,
+                () => notifier.startInitialRanking(),
+              ),
               icon: const Icon(Icons.play_arrow_rounded),
               label: const Text(
                 'Create a Ranking',
@@ -333,7 +353,11 @@ class _RankingsScreenState extends ConsumerState<RankingsScreen> {
     );
   }
 
-  void _showRerankConfirmation(BuildContext context, RankingsNotifier notifier) {
+  void _showRerankConfirmation(
+    BuildContext context,
+    RankingsNotifier notifier,
+    List<CanonicalGame> canonicalGames,
+  ) {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -349,13 +373,37 @@ class _RankingsScreenState extends ConsumerState<RankingsScreen> {
           FilledButton(
             onPressed: () {
               Navigator.pop(ctx);
-              notifier.startRerankAll();
+              _ensureRatedAndStart(
+                context,
+                canonicalGames,
+                () => notifier.startRerankAll(),
+              );
             },
             child: const Text('Re-rank All'),
           ),
         ],
       ),
     );
+  }
+
+  Future<void> _ensureRatedAndStart(
+    BuildContext context,
+    List<CanonicalGame> gamesToCheck,
+    VoidCallback onAllRated,
+  ) async {
+    final unrated = gamesToCheck.where((g) => g.personalRating <= 0.0).toList();
+    for (final game in unrated) {
+      if (!context.mounted) return;
+      final rating = await PreRankRatingSheet.show(context, game: game);
+      if (rating == null || rating <= 0.0) {
+        // User dismissed/cancelled rating this game; stop ranking flow
+        return;
+      }
+      await ref.read(libraryNotifierProvider.notifier).updateRating(game.primaryEntryId, rating);
+    }
+    if (context.mounted) {
+      onAllRated();
+    }
   }
 
   void _openDossier(BuildContext context, RankedGameItem item) {

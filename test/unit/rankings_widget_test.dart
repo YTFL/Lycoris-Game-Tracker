@@ -128,9 +128,15 @@ void main() {
     expect(find.text('Diamond'), findsNothing);
     expect(find.text('Platinum'), findsNothing);
     expect(find.text('1420 pts'), findsNothing);
+
+    // Verify playtime and personal rating are displayed in Top 5 showcase
+    expect(find.text('100h'), findsOneWidget); // Elden Ring 6000m = 100h
+    expect(find.text('40h'), findsOneWidget);  // Hollow Knight 2400m = 40h
+    expect(find.text('10.0'), findsOneWidget);
+    expect(find.text('9.5'), findsOneWidget);
   });
 
-  testWidgets('RankingListTile displays rank, title, record without points or status badge', (tester) async {
+  testWidgets('RankingListTile displays rank, title, playtime, and personal rating', (tester) async {
     bool tapped = false;
     final item = RankedGameItem(
       rank: 6,
@@ -158,6 +164,8 @@ void main() {
 
     expect(find.text('#6'), findsOneWidget);
     expect(find.text('Elden Ring'), findsOneWidget);
+    expect(find.text('100h'), findsOneWidget); // Elden Ring playtime
+    expect(find.text('10.0'), findsOneWidget); // Personal rating
     expect(find.text('1285 pts'), findsNothing);
     expect(find.text('4W - 2L - 1D'), findsNothing);
 

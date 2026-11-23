@@ -7,6 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.1.0] - 2026-11-23
+
+### Added
+- **Game Rankings Enhancements**:
+  - Displayed playtime (`TimeNormalizer.format`) and user personal star rating in the Top 5 podium slots (#1–#3) and sub-tier cards (#4–#5).
+  - Displayed personal star ratings on list tiles across all remaining ranks (#6+).
+  - Introduced `PreRankRatingSheet`: a mandatory pre-ranking rating flow that prompts users to rate any unrated completed games before comparison sessions begin, establishing an accurate baseline.
+  - Implemented dynamic initial Elo seeding based on user personal rating: $\text{initialElo} = 800.0 + (\text{personalRating} \times 80.0)$.
+  - Accelerated K-factor calibration ($K=64 \rightarrow 48 \rightarrow 32 \rightarrow 20$) for rapid ladder placement of newly added games.
+- Global `snackBarTheme` in `main.dart` enforcing floating, rounded dark slate notification capsules across the app.
+
+### Changed
+- **Rankings Calibration & Matchmaking**:
+  - Fixed premature session termination where "Rank New Games" abruptly cut off after 3 comparisons regardless of the planned total.
+  - Removed artificial 400-point Elo distance restriction for uncalibrated games, allowing newcomers to challenge higher or lower tiers.
+  - Anchored new game matchmaking against established, calibrated library games instead of clustering uncalibrated titles against each other.
+  - Added dampening to rating losses on calibrated games when facing uncalibrated newcomers to protect established leaderboard integrity.
+  - Retained uncalibrated games in `newUnrankedGames` until completing at least 3 comparisons so the ranking prompt is never lost on early exit.
+- **Anti-Bias & Anti-Manipulation Updates**:
+  - In "Help Me Choose": Removed `<game> takes the lead` and `Evenly matched` ticker text, and updated the action button to simply `"Continue"`.
+  - In "Help Me Rate": Removed the live numerical average rating ticker from the top card (replaced with rated dimensions count) and removed the score from the `"Apply Rating"` button to prevent artificial score manipulation.
+- Minimized Cloudflare proxy connection status message to `"Proxy operational"` and replaced the green alert container with the Spider Lily Crimson / dark slate theme.
+- Standardized all toast notifications (SnackBars) in Settings to floating capsules, eliminating raw green (`LycorisColors.success`), blue (`info`), amber (`warning`), and solid red (`error`) blocks.
+- Updated developer API credential lock icon and update button highlight from rogue green (`#10B981`) to `colorScheme.primary`.
+
+### Removed
+- Removed the `"CONVERSION BENCHMARK (BASE: 1 USD)"` matrix box from the Settings Display Currency & FX Rates card.
+- Removed the `"Offline-first gaming library & investment ROI tracker"` footer subtitle from the Settings screen.
+
+---
+
 ## [1.0.0] - 2026-10-24
 
 ### Added
@@ -45,29 +76,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Google Drive cloud synchronization using restricted `drive.file` scope.
   - Last-Write-Wins (LWW) conflict resolution using ISO-8601 timestamps.
   - Local JSON vault export and import via system file pickers.
+  - Automated 2-stage rotating offline local backups (`lycoris_backup_current.json` and `lycoris_backup_previous.json`) with Android Storage Access Framework (SAF) folder integration.
   - Zero telemetry, zero analytics trackers, and zero third-party advertising SDKs.
+- **Automated GitHub Updates & In-App Installer**:
+  - In-app update checker querying `update.json` on raw GitHub with fallback to GitHub Releases API (`/releases/latest`).
+  - Silent launch check with 24-hour deferral reminder support.
+  - On-demand "Check for Updates" trigger in Settings.
+  - Dio chunked APK streaming to disk with animated progress bar.
+  - Native Android package installation via `FileProvider`.
+- **In-App Legal Documentation & Developer Showcase**:
+  - Native in-app markdown viewer (`MarkdownViewerScreen`) rendering offline Terms of Service (`docs/terms.md`), Privacy Policy (`docs/privacy.md`), and Release Notes (`RELEASE_NOTES.md`).
+  - Developer showcase link (`https://ytfl.github.io/`) in Settings About & Legal hub.
 - **Edge Infrastructure**:
   - Cloudflare Worker proxy for anonymous IGDB APICalypse v4 queries and edge caching of Twitch OAuth tokens.
   - Configurable proxy URL toggle in Settings.
 - **Community & Documentation**:
   - Comprehensive documentation suite: [RELEASE_NOTES.md](RELEASE_NOTES.md), [CONTRIBUTING.md](CONTRIBUTING.md), [README.md](README.md).
-  - Bundled offline documentation (`docs/terms.md`, `docs/privacy.md`, and `RELEASE_NOTES.md`).
-  - Standardized GitHub issue templates for bug reports and feature requests.
-  - Structured GitHub pull request template.
-- **Settings & In-App Documentation**:
-  - New "About & Legal" settings hub featuring direct access to:
-    - **What's New**: In-app markdown viewer rendering release notes.
-    - **View More Apps by Me**: External browser link to `https://ytfl.github.io/`.
-    - **Terms and Conditions**: Native markdown rendering of the AGPL-3.0 terms of service.
-    - **Privacy Policy**: Native markdown rendering of verified zero-telemetry policy.
-  - Reusable, theme-aware in-app markdown viewer (`MarkdownViewerScreen`) with selectable text, link interception, and responsive design.
-- **Automated GitHub Updates & In-App Installer**:
-  - In-app update checker querying `update.json` on raw GitHub with automatic fallback to GitHub Releases API (`/releases/latest`).
-  - Silent background check on app launch with 24-hour deferral reminder support.
-  - On-demand "Check for Updates" action button in **Settings > About Lycoris** with real-time status indication.
-  - High-performance APK download engine via Dio with chunked disk streaming and animated percentage progress bar.
-  - Native Android package installer integration via MethodChannel, `FileProvider`, and Android 8+ `REQUEST_INSTALL_PACKAGES` permission handling.
-  - Fullscreen Spider Lily styled `UpdateScreen` with version comparison card, release date indicator, and markdown release notes rendering.
-  - Automatic cleanup of downloaded update packages upon completion or when running the latest version.
+  - Standardized GitHub issue templates and PR template.
 
+[1.1.0]: https://github.com/YTFL/Lycoris-Game-Tracker/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/YTFL/Lycoris-Game-Tracker/releases/tag/v1.0.0

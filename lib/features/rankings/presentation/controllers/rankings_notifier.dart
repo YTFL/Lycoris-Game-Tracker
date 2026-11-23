@@ -43,13 +43,22 @@ class RankingsNotifier extends StateNotifier<RankingsState> {
 
     final ratingMap = <String, GameRankingData>{};
     for (final game in canonical) {
-      ratingMap[game.canonicalKey] = storedRatings[game.canonicalKey] ??
-          GameRankingData(canonicalKey: game.canonicalKey);
+      final existing = storedRatings[game.canonicalKey];
+      if (existing != null && existing.comparisonCount > 0) {
+        ratingMap[game.canonicalKey] = existing;
+      } else {
+        final initialElo = game.personalRating > 0
+            ? (800.0 + (game.personalRating * 80.0))
+            : 1200.0;
+        ratingMap[game.canonicalKey] = (existing ?? GameRankingData(canonicalKey: game.canonicalKey)).copyWith(
+          eloRating: initialElo,
+        );
+      }
     }
 
     final newUnranked = canonical.where((g) {
       final data = ratingMap[g.canonicalKey];
-      return data == null || data.comparisonCount == 0;
+      return data == null || data.comparisonCount < 3;
     }).toList();
 
     state = state.copyWith(
@@ -58,6 +67,14 @@ class RankingsNotifier extends StateNotifier<RankingsState> {
       newUnrankedGames: newUnranked,
       comparisonHistory: history,
     );
+  }
+
+  /// Dynamic progressive K-factor (higher for new games for rapid calibration)
+  static double _getKFactor(int comparisonCount) {
+    if (comparisonCount < 2) return 64.0;
+    if (comparisonCount < 4) return 48.0;
+    if (comparisonCount < 6) return 32.0;
+    return 20.0;
   }
 
   /// Calculates N * log2(N) comparison limit
@@ -90,10 +107,16 @@ class RankingsNotifier extends StateNotifier<RankingsState> {
     if (state.canonicalGames.length < 2) return;
     if (state.newUnrankedGames.isEmpty) return;
 
+    final targetKeys = state.newUnrankedGames.map((g) => g.canonicalKey).toList();
     final n = state.canonicalGames.length;
     final log2N = log(max(2, n)) / ln2;
     final perGameComparisons = max(3, (log2N * 2).ceil());
     final totalPlanned = perGameComparisons * state.newUnrankedGames.length;
+
+    state = state.copyWith(
+      activeNewGameKeys: targetKeys,
+      isRankingOnlyNewGames: true,
+    );
 
     final firstPair = _findNextPair(onlyNewGames: true);
     if (firstPair == null) return;
@@ -104,6 +127,7 @@ class RankingsNotifier extends StateNotifier<RankingsState> {
       totalComparisonsInSession: totalPlanned,
       isComparisonActive: true,
       isRankingOnlyNewGames: true,
+      activeNewGameKeys: targetKeys,
     );
   }
 
@@ -143,9 +167,9 @@ class RankingsNotifier extends StateNotifier<RankingsState> {
     final eA = 1.0 / (1.0 + pow(10.0, (rB - rA) / 400.0));
     final eB = 1.0 - eA;
 
-    // Dynamic K-factor (higher for new games for rapid calibration)
-    final kA = dataA.comparisonCount < 6 ? 32.0 : 20.0;
-    final kB = dataB.comparisonCount < 6 ? 32.0 : 20.0;
+    // Dynamic progressive K-factor (higher for new games for rapid calibration)
+    final kA = _getKFactor(dataA.comparisonCount);
+    final kB = _getKFactor(dataB.comparisonCount);
 
     double sA;
     double sB;
@@ -177,8 +201,12 @@ class RankingsNotifier extends StateNotifier<RankingsState> {
         break;
     }
 
-    final deltaA = kA * (sA - eA);
-    final deltaB = kB * (sB - eB);
+    // Dampen rating loss on calibrated opponents when facing an uncalibrated newcomer
+    final dampeningB = dataA.comparisonCount < 3 ? max(0.4, dataA.comparisonCount / 3.0) : 1.0;
+    final dampeningA = dataB.comparisonCount < 3 ? max(0.4, dataB.comparisonCount / 3.0) : 1.0;
+
+    final deltaA = kA * (sA - eA) * (sA < eA ? dampeningA : 1.0);
+    final deltaB = kB * (sB - eB) * (sB < eB ? dampeningB : 1.0);
 
     final updatedDataA = dataA.copyWith(
       eloRating: rA + deltaA,
@@ -237,9 +265,10 @@ class RankingsNotifier extends StateNotifier<RankingsState> {
         currentComparison: () => null,
         isComparisonActive: false,
         isRankingOnlyNewGames: false,
+        activeNewGameKeys: const [],
         newUnrankedGames: state.canonicalGames.where((g) {
           final d = updatedMap[g.canonicalKey];
-          return d == null || d.comparisonCount == 0;
+          return d == null || d.comparisonCount < 3;
         }).toList(),
       );
     } else {
@@ -250,7 +279,7 @@ class RankingsNotifier extends StateNotifier<RankingsState> {
         currentComparisonIndex: nextIndex,
         newUnrankedGames: state.canonicalGames.where((g) {
           final d = updatedMap[g.canonicalKey];
-          return d == null || d.comparisonCount == 0;
+          return d == null || d.comparisonCount < 3;
         }).toList(),
       );
     }
@@ -350,6 +379,7 @@ class RankingsNotifier extends StateNotifier<RankingsState> {
     state = state.copyWith(
       isComparisonActive: false,
       isRankingOnlyNewGames: false,
+      activeNewGameKeys: const [],
       currentComparison: () => null,
     );
   }
@@ -400,20 +430,20 @@ class RankingsNotifier extends StateNotifier<RankingsState> {
         final dataA = state.rankingDataMap[gA.canonicalKey] ?? GameRankingData(canonicalKey: gA.canonicalKey);
         final dataB = state.rankingDataMap[gB.canonicalKey] ?? GameRankingData(canonicalKey: gB.canonicalKey);
 
-        // 4. If ranking only new games, at least one game MUST be uncalibrated (< 3 comparisons)
+        // 4. If ranking only new games, at least one game MUST be in the active batch or uncalibrated (< 3 comparisons)
         if (onlyNewGames) {
-          final isAUncalibrated = dataA.comparisonCount < 3;
-          final isBUncalibrated = dataB.comparisonCount < 3;
-          if (!isAUncalibrated && !isBUncalibrated) continue;
+          final isAActive = state.activeNewGameKeys.contains(gA.canonicalKey) || dataA.comparisonCount < 3;
+          final isBActive = state.activeNewGameKeys.contains(gB.canonicalKey) || dataB.comparisonCount < 3;
+          if (!isAActive && !isBActive) continue;
         }
 
         final ratingDist = (dataA.eloRating - dataB.eloRating).abs();
 
         // 5. Must be reasonably ranked:
-        // If both games have had at least 2 comparisons, their rating distance must be reasonable (<= 400.0)
-        // If the gap exceeds 400.0 (>91% expected win probability), pairing them gives minimal rating information
-        final isBothCalibrated = dataA.comparisonCount >= 2 && dataB.comparisonCount >= 2;
-        if (isBothCalibrated && ratingDist > 400.0) {
+        // Only enforce the 400.0 distance limit if BOTH games are well established (>= 5 comparisons).
+        // Uncalibrated games must be able to challenge higher/lower tiers to find their rightful rank.
+        final isBothEstablished = dataA.comparisonCount >= 5 && dataB.comparisonCount >= 5;
+        if (isBothEstablished && ratingDist > 400.0) {
           continue;
         }
 
@@ -421,9 +451,21 @@ class RankingsNotifier extends StateNotifier<RankingsState> {
         // Closer ratings give higher information entropy
         // Games with fewer comparisons get higher priority
         final uncalibratedScore = (10 - min(10, dataA.comparisonCount)) + (10 - min(10, dataB.comparisonCount));
-        final jitter = _rng.nextDouble() * 20.0;
 
-        final score = ratingDist - (uncalibratedScore * 40.0) + jitter;
+        // In onlyNewGames mode, prioritize pairing new games against established calibrated library games (benchmarking)
+        double anchorBonus = 0.0;
+        if (onlyNewGames) {
+          final isAActive = state.activeNewGameKeys.contains(gA.canonicalKey) || dataA.comparisonCount < 3;
+          final isBActive = state.activeNewGameKeys.contains(gB.canonicalKey) || dataB.comparisonCount < 3;
+          if ((isAActive && !isBActive && dataB.comparisonCount >= 3) ||
+              (isBActive && !isAActive && dataA.comparisonCount >= 3)) {
+            anchorBonus = 150.0;
+          }
+        }
+
+        final jitter = _rng.nextDouble() * 15.0;
+
+        final score = ratingDist - (uncalibratedScore * 30.0) - anchorBonus + jitter;
         candidates.add(_PairCandidate(gameA: gA, gameB: gB, score: score));
       }
     }

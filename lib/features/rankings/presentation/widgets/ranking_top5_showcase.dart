@@ -1,5 +1,6 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import '../../../../core/utils/time_normalizer.dart';
 import '../../domain/models/ranking_tier.dart';
 import '../controllers/rankings_state.dart';
 
@@ -199,15 +200,67 @@ class RankingTop5Showcase extends StatelessWidget {
               left: 8,
               right: 8,
               bottom: 8,
-              child: Text(
-                item.game.title,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.labelMedium?.copyWith(
-                  fontWeight: FontWeight.w800,
-                  color: Colors.white,
-                  height: 1.15,
-                ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    item.game.title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.labelMedium?.copyWith(
+                      fontWeight: FontWeight.w800,
+                      color: Colors.white,
+                      height: 1.15,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      // Playtime
+                      if (item.game.totalMinutesPlayed > 0) ...[
+                        Icon(
+                          Icons.schedule_rounded,
+                          size: 11,
+                          color: Colors.white.withAlpha(200),
+                        ),
+                        const SizedBox(width: 3),
+                        Flexible(
+                          child: Text(
+                            TimeNormalizer.format(item.game.totalMinutesPlayed),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.white70,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                      ],
+                      // Personal Star Rating
+                      Icon(
+                        item.game.personalRating > 0
+                            ? Icons.star_rounded
+                            : Icons.star_outline_rounded,
+                        size: 12,
+                        color: Colors.amberAccent,
+                      ),
+                      const SizedBox(width: 2),
+                      Text(
+                        item.game.personalRating > 0
+                            ? item.game.personalRating.toStringAsFixed(1)
+                            : '—',
+                        style: const TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w800,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
             ),
           ],
@@ -293,6 +346,47 @@ class RankingTop5Showcase extends StatelessWidget {
                       fontWeight: FontWeight.w700,
                       color: colorScheme.onSurface,
                     ),
+                  ),
+                  const SizedBox(height: 3),
+                  Row(
+                    children: [
+                      // Playtime
+                      if (item.game.totalMinutesPlayed > 0) ...[
+                        Icon(
+                          Icons.schedule_rounded,
+                          size: 10,
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                        const SizedBox(width: 2),
+                        Text(
+                          TimeNormalizer.format(item.game.totalMinutesPlayed),
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            fontSize: 10,
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                      ],
+                      // Personal Star Rating
+                      Icon(
+                        item.game.personalRating > 0
+                            ? Icons.star_rounded
+                            : Icons.star_outline_rounded,
+                        size: 11,
+                        color: colorScheme.secondary,
+                      ),
+                      const SizedBox(width: 2),
+                      Text(
+                        item.game.personalRating > 0
+                            ? item.game.personalRating.toStringAsFixed(1)
+                            : '—',
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                          color: colorScheme.secondary,
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),

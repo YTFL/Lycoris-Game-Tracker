@@ -232,10 +232,6 @@ class _HelpMeChooseSheetState extends State<HelpMeChooseSheet> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // Outcome summary
-                  _buildOutcomeTicker(context, result, titleA, titleB),
-                  const SizedBox(height: 10),
-
                   // Confirm Decision Button
                   SizedBox(
                     width: double.infinity,
@@ -249,11 +245,11 @@ class _HelpMeChooseSheetState extends State<HelpMeChooseSheet> {
                           borderRadius: BorderRadius.circular(14),
                         ),
                       ),
-                      child: Text(
-                        _getConfirmButtonLabel(result, titleA, titleB),
+                      child: const Text(
+                        'Continue',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontWeight: FontWeight.w800),
+                        style: TextStyle(fontWeight: FontWeight.w800),
                       ),
                     ),
                   ),
@@ -470,52 +466,5 @@ class _HelpMeChooseSheetState extends State<HelpMeChooseSheet> {
         ),
       ),
     );
-  }
-
-  Widget _buildOutcomeTicker(
-    BuildContext context,
-    MetricEvaluationResult result,
-    String titleA,
-    String titleB,
-  ) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-
-    String statusText;
-    Color statusColor;
-
-    if (result.isAWins) {
-      statusText = '$titleA takes the lead (${result.picksA} to ${result.picksB})';
-      statusColor = colorScheme.primary;
-    } else if (result.isBWins) {
-      statusText = '$titleB takes the lead (${result.picksB} to ${result.picksA})';
-      statusColor = colorScheme.primary;
-    } else {
-      statusText = 'Evenly matched (${result.picksA} - ${result.picksB})';
-      statusColor = colorScheme.onSurfaceVariant;
-    }
-
-    return Center(
-      child: Text(
-        statusText,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        textAlign: TextAlign.center,
-        style: theme.textTheme.labelMedium?.copyWith(
-          fontWeight: FontWeight.w700,
-          color: statusColor,
-        ),
-      ),
-    );
-  }
-
-  String _getConfirmButtonLabel(MetricEvaluationResult result, String titleA, String titleB) {
-    if (result.isAWins) {
-      return 'Choose $titleA';
-    } else if (result.isBWins) {
-      return 'Choose $titleB';
-    } else {
-      return 'Choose Draw';
-    }
   }
 }

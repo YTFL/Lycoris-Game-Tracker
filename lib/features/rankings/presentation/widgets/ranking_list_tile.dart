@@ -112,6 +112,32 @@ class RankingListTile extends StatelessWidget {
                 ],
               ),
             ),
+            const SizedBox(width: 8),
+
+            // Personal Rating Badge
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  item.game.personalRating > 0
+                      ? Icons.star_rounded
+                      : Icons.star_outline_rounded,
+                  size: 15,
+                  color: colorScheme.secondary,
+                ),
+                const SizedBox(width: 3),
+                Text(
+                  item.game.personalRating > 0
+                      ? item.game.personalRating.toStringAsFixed(1)
+                      : '—',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: colorScheme.secondary,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
           ],
         ),
       ),
