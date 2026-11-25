@@ -721,13 +721,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         children: [
           // 1. Home Tabs & Categories Customization
-          _buildCard(
-            context: context,
-            title: 'Library Tabs & Categories',
-            subtitle: 'Reorder, hide status tabs, or create custom category tabs.',
-            icon: Icons.tab_rounded,
-            children: [
-              ListTile(
+          Card(
+            elevation: 0,
+            color: colorScheme.surfaceContainerLow,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+              side: BorderSide(color: colorScheme.outlineVariant.withAlpha(60)),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: ListTile(
                 contentPadding: EdgeInsets.zero,
                 leading: Container(
                   padding: const EdgeInsets.all(8),
@@ -753,7 +756,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   );
                 },
               ),
-            ],
+            ),
           ),
 
           const SizedBox(height: 14),

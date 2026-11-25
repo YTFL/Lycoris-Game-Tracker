@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hive/hive.dart';
 import 'package:lycoris/features/search/data/igdb_cache_service.dart';
@@ -35,7 +36,7 @@ void main() {
     );
 
     test('searchGames returns immediately from cache when cached without hitting network', () async {
-      await cacheService.cacheQueryResults('zelda', [cachedGame]);
+      await cacheService.cacheQueryResults('base:zelda', [cachedGame]);
 
       final service = IGDBService(
         cacheService: cacheService,
@@ -92,6 +93,33 @@ void main() {
       expect(reconstructed.coverBigUrl, equals(cachedGame.coverBigUrl));
       expect(reconstructed.genres, equals(cachedGame.genres));
       expect(reconstructed.releaseDate, equals(cachedGame.releaseDate));
+    });
+
+    test('searchGames filters out DLCs and updates by default and includes them when requested', () async {
+      final capturedPayloads = <String>[];
+      final dio = Dio();
+      dio.interceptors.add(
+        InterceptorsWrapper(
+          onRequest: (options, handler) {
+            capturedPayloads.add(options.data.toString());
+            handler.resolve(
+              Response<dynamic>(
+                requestOptions: options,
+                statusCode: 200,
+                data: <dynamic>[],
+              ),
+            );
+          },
+        ),
+      );
+
+      final service = IGDBService(dio: dio, cacheService: cacheService);
+
+      await service.searchGames('elden ring');
+      expect(capturedPayloads.last, contains('where parent_game = null & version_parent = null;'));
+
+      await service.searchGames('elden ring', includeDlcsAndUpdates: true);
+      expect(capturedPayloads.last, isNot(contains('where parent_game = null & version_parent = null;')));
     });
   });
 }

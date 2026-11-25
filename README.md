@@ -32,6 +32,40 @@ Most game tracking services require online accounts, load sluggish web views, mo
 
 ---
 
+## Screenshots
+
+<table align="center">
+  <tr>
+    <td align="center">
+      <img src="screenshots/library_shelf.jpg" alt="The Shelf — Cover Art Grid" width="250"><br>
+      <sub><b>The Shelf — Cover Art Grid</b></sub>
+    </td>
+    <td align="center">
+      <img src="screenshots/library_list.jpg" alt="The List View — Dense Table" width="250"><br>
+      <sub><b>The List View — Dense Table</b></sub>
+    </td>
+    <td align="center">
+      <img src="screenshots/game_details.jpg" alt="Game Details & Expense Tracking" width="250"><br>
+      <sub><b>Game Details & Expense Tracking</b></sub>
+    </td>
+  </tr>
+</table>
+
+<table align="center">
+  <tr>
+    <td align="center">
+      <img src="screenshots/analytics_dashboard.jpg" alt="Interactive Analytics Dashboard" width="250"><br>
+      <sub><b>Interactive Analytics Dashboard</b></sub>
+    </td>
+    <td align="center">
+      <img src="screenshots/rankings.jpg" alt="Head-to-Head Rankings & Tier List" width="250"><br>
+      <sub><b>Head-to-Head Rankings & Tier List</b></sub>
+    </td>
+  </tr>
+</table>
+
+---
+
 ## Key Features
 
 ### The Library: Dual Display Modes

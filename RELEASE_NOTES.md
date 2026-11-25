@@ -54,6 +54,9 @@ Lycoris **v1.1.0** is a major feature and refinement release introducing a compl
 ---
 
 ### 4. Analytics Redesign & IGDB DLC Integration
+- **Base Game Search Filtering**:
+  - Filtered out DLCs, updates, packs, and child/edition entries (`parent_game = null & version_parent = null`) by default in IGDB game search so original games are never buried under add-ons.
+  - Added two compact icon-only filter buttons directly next to the search bar on `GameSearchScreen` to toggle **Base games only** and **Hide games already in library**.
 - **Tabbed Analytics Intelligence Engine**:
   - Replaced the legacy 4-card analytics screen with a 4-tab sliding pill interface (`Playtime & Habits`, `Rating & Joy`, `Backlog & Pipeline`, `Superlatives`).
   - **Playtime & Habits**: Surfaced outlier-resistant median playtime alongside arithmetic average, heavy-outlier library share warnings, 5-tier campaign commitment buckets (<5h, 5–20h, 20–50h, 50–100h, 100+h), and genre playtime & satisfaction alignment.

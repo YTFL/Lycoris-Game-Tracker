@@ -241,22 +241,29 @@ class IGDBService {
     String query, {
     int limit = 15,
     bool bypassCache = false,
+    bool includeDlcsAndUpdates = false,
   }) async {
     final sanitizedQuery = query.replaceAll('"', '').trim();
     if (sanitizedQuery.isEmpty) return [];
 
+    final cacheKey = '${includeDlcsAndUpdates ? 'all' : 'base'}:$sanitizedQuery';
+
     // 1. Client-Side Cache Lookup
     if (!bypassCache && _cacheService != null) {
-      final cached = _cacheService!.getCachedQuery(sanitizedQuery);
+      final cached = _cacheService!.getCachedQuery(cacheKey);
       if (cached != null && cached.isNotEmpty) {
         return cached.take(limit).toList();
       }
     }
 
+    final whereClause = includeDlcsAndUpdates
+        ? ''
+        : 'where parent_game = null & version_parent = null;\n';
+
     final apicalypseQuery = '''
 fields name, summary, cover.image_id, genres.name, first_release_date;
 search "$sanitizedQuery";
-limit $limit;
+${whereClause}limit $limit;
 ''';
 
     try {
@@ -267,7 +274,7 @@ limit $limit;
 
       // 3. Persist fresh results to local cache permanently
       if (_cacheService != null && results.isNotEmpty) {
-        await _cacheService!.cacheQueryResults(sanitizedQuery, results);
+        await _cacheService!.cacheQueryResults(cacheKey, results);
       }
 
       return results;

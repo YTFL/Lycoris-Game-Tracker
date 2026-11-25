@@ -35,6 +35,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **IGDB Official DLC & Expansion Integration**:
   - Added `fetchGameDlcs` in `IGDBService` querying official DLCs and expansions (`parent_game = igdbId` with fallback to parent entity arrays).
   - Built `AddDlcDialog` on the Game Dossier screen featuring an official DLC suggestion carousel with category tags (*Expansion*, *DLC / Addon*, *Season Pass*), release dates, cover art, one-tap title autofill, and instant search filtering.
+- **Base Game Search Filtering**:
+  - Filtered out DLCs, updates, packs, and child/edition entries (`parent_game = null & version_parent = null`) by default in `IGDBService.searchGames` so original base games are always discoverable even for titles with many add-ons.
+  - Added compact icon-only filter buttons directly next to the `SearchBar` on `GameSearchScreen` to toggle **Base games only** (enabled by default) and **Hide games already in library** (filtering by `igdbId`), with separate cache namespaces for filtered and unfiltered queries.
 - **Game Rankings Enhancements**:
   - **Share Rankings**: Added a Share action to the Rankings `AppBar` that captures the full rankings page (Top 5 showcase and all remaining ranked games) as a high-resolution PNG image and opens the native share sheet.
   - Displayed playtime (`TimeNormalizer.format`) and user personal star rating in the Top 5 podium slots (#1–#3) and sub-tier cards (#4–#5).

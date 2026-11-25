@@ -21,6 +21,8 @@ class _GameSearchScreenState extends ConsumerState<GameSearchScreen> {
   Timer? _debounceTimer;
 
   bool _isSearching = false;
+  bool _baseGamesOnly = true;
+  bool _hideInLibrary = false;
   List<IGDBSearchResult> _searchResults = [];
 
   @override
@@ -44,7 +46,10 @@ class _GameSearchScreenState extends ConsumerState<GameSearchScreen> {
       setState(() => _isSearching = true);
       try {
         final igdbService = ref.read(igdbServiceProvider);
-        final results = await igdbService.searchGames(query.trim());
+        final results = await igdbService.searchGames(
+          query.trim(),
+          includeDlcsAndUpdates: !_baseGamesOnly,
+        );
         if (mounted) {
           setState(() {
             _searchResults = results;
@@ -96,6 +101,14 @@ class _GameSearchScreenState extends ConsumerState<GameSearchScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final libraryGames = ref.watch(libraryNotifierProvider).allGames;
+    final libraryIgdbIds = libraryGames
+        .where((g) => g.igdbId > 0)
+        .map((g) => g.igdbId)
+        .toSet();
+    final displayedResults = _hideInLibrary
+        ? _searchResults.where((r) => !libraryIgdbIds.contains(r.id)).toList()
+        : _searchResults;
 
     return Scaffold(
       appBar: AppBar(
@@ -112,29 +125,76 @@ class _GameSearchScreenState extends ConsumerState<GameSearchScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            // Search Input Field
+            // Search Input Field + Compact Filter Icon Buttons
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: SearchBar(
-                controller: _searchController,
-                hintText: 'Search IGDB (e.g. Elden Ring, Hades)...',
-                leading: const Padding(
-                  padding: EdgeInsets.only(left: 12),
-                  child: Icon(Icons.search, size: 20),
-                ),
-                trailing: [
-                  if (_searchController.text.isNotEmpty)
-                    IconButton(
-                      icon: const Icon(Icons.clear),
-                      onPressed: () {
-                        _searchController.clear();
-                        _onSearchChanged('');
-                      },
+              child: Row(
+                children: [
+                  Expanded(
+                    child: SearchBar(
+                      controller: _searchController,
+                      hintText: 'Search IGDB (e.g. Elden Ring, Hades)...',
+                      leading: const Padding(
+                        padding: EdgeInsets.only(left: 12),
+                        child: Icon(Icons.search, size: 20),
+                      ),
+                      trailing: [
+                        if (_searchController.text.isNotEmpty)
+                          IconButton(
+                            icon: const Icon(Icons.clear),
+                            onPressed: () {
+                              _searchController.clear();
+                              _onSearchChanged('');
+                            },
+                          ),
+                      ],
+                      elevation: const WidgetStatePropertyAll(0),
+                      backgroundColor: WidgetStatePropertyAll(colorScheme.surfaceContainerHigh),
+                      onChanged: _onSearchChanged,
                     ),
+                  ),
+                  const SizedBox(width: 6),
+                  IconButton(
+                    icon: Icon(
+                      Icons.sports_esports_outlined,
+                      size: 20,
+                      color: _baseGamesOnly ? colorScheme.primary : colorScheme.onSurfaceVariant,
+                    ),
+                    style: IconButton.styleFrom(
+                      backgroundColor: _baseGamesOnly
+                          ? colorScheme.primaryContainer.withAlpha(120)
+                          : colorScheme.surfaceContainerHigh,
+                      visualDensity: VisualDensity.compact,
+                    ),
+                    tooltip: _baseGamesOnly
+                        ? 'Base games only (tap to include DLCs & updates)'
+                        : 'Including DLCs & updates (tap for base games only)',
+                    onPressed: () {
+                      setState(() => _baseGamesOnly = !_baseGamesOnly);
+                      if (_searchController.text.trim().isNotEmpty) {
+                        _onSearchChanged(_searchController.text);
+                      }
+                    },
+                  ),
+                  const SizedBox(width: 4),
+                  IconButton(
+                    icon: Icon(
+                      _hideInLibrary ? Icons.visibility_off_outlined : Icons.library_add_check_outlined,
+                      size: 20,
+                      color: _hideInLibrary ? colorScheme.primary : colorScheme.onSurfaceVariant,
+                    ),
+                    style: IconButton.styleFrom(
+                      backgroundColor: _hideInLibrary
+                          ? colorScheme.primaryContainer.withAlpha(120)
+                          : colorScheme.surfaceContainerHigh,
+                      visualDensity: VisualDensity.compact,
+                    ),
+                    tooltip: _hideInLibrary
+                        ? 'Hiding games already in library'
+                        : 'Hide games already in library',
+                    onPressed: () => setState(() => _hideInLibrary = !_hideInLibrary),
+                  ),
                 ],
-                elevation: const WidgetStatePropertyAll(0),
-                backgroundColor: WidgetStatePropertyAll(colorScheme.surfaceContainerHigh),
-                onChanged: _onSearchChanged,
               ),
             ),
 
@@ -162,7 +222,7 @@ class _GameSearchScreenState extends ConsumerState<GameSearchScreen> {
                         color: colorScheme.primary,
                       ),
                     )
-                  : _searchResults.isEmpty
+                  : displayedResults.isEmpty
                       ? Center(
                           child: Padding(
                             padding: const EdgeInsets.all(32),
@@ -217,10 +277,10 @@ class _GameSearchScreenState extends ConsumerState<GameSearchScreen> {
                         )
                       : ListView.separated(
                           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                          itemCount: _searchResults.length,
+                          itemCount: displayedResults.length,
                           separatorBuilder: (_, _) => const SizedBox(height: 8),
                           itemBuilder: (context, index) {
-                            final item = _searchResults[index];
+                            final item = displayedResults[index];
                             return _buildSearchResultTile(item);
                           },
                         ),
