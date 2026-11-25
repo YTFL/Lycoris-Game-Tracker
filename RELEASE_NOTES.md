@@ -61,3 +61,16 @@ Lycoris **v1.1.0** is a major feature and refinement release introducing a compl
 - **Official IGDB DLC Search & Autofill**:
   - Enhanced `IGDBService` with `fetchGameDlcs` to retrieve official expansions and DLCs directly from IGDB.
   - Upgraded the "Add DLC" dialog in `DossierScreen` to `AddDlcDialog`, featuring an interactive carousel of official DLCs with category chips (*Expansion*, *DLC / Addon*, *Season Pass*), release dates, cover art, one-tap title autofill, and instant query filtering.
+
+---
+
+### 5. Customizable Home Tabs & Custom Categories
+- **Full Tab Reordering & Visibility Control**:
+  - Reorder home page tabs in any order using drag-and-drop handles. Mix and match status tabs and custom category tabs freely.
+  - Toggle visibility to hide or show main status tabs (`All`, `Playing`, `Backlog`, `Completed`, `Mastered`, `Abandoned`, `Wishlist`). Built-in status tabs cannot be deleted, only hidden. A safeguard guarantees at least one tab remains visible.
+  - Create, edit, and delete custom user categories (e.g. *Favorites*, *Co-op*, *Speedrun*). Deleting a category automatically strips references from games in the library.
+  - "Reset to Defaults" option restores standard tab layout while keeping custom categories and game assignments intact.
+- **Dedicated Settings Screen**:
+  - Accessible directly under Settings > *Library Tabs & Categories* > *Customize Tabs & Categories*.
+- **Separate Category Option in Game Pages**:
+  - Added dedicated Categories multi-select chip controls on the Game Dossier screen, Edit Game modal, Game Intake screen, and Manual Game modal, keeping the status dropdown completely separate and independent.

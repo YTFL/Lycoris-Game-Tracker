@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/utils/currency_helper.dart';
 import '../../../../core/utils/text_field_helper.dart';
+import '../../../home/presentation/controllers/home_tabs_notifier.dart';
 import '../../domain/models/game_entry.dart';
 import '../../domain/models/storefront.dart';
 import '../controllers/library_notifier.dart';
@@ -27,6 +28,7 @@ class _EditGameModalState extends ConsumerState<EditGameModal> {
   late Storefront _selectedStorefront;
   late String _selectedCurrency;
   late bool _isFree;
+  late List<String> _selectedCategories;
 
   @override
   void initState() {
@@ -39,6 +41,7 @@ class _EditGameModalState extends ConsumerState<EditGameModal> {
     _selectedStorefront = widget.game.storefront;
     _selectedCurrency = widget.game.currency;
     _isFree = widget.game.basePrice <= 0;
+    _selectedCategories = List<String>.from(widget.game.customCategories);
   }
 
   @override
@@ -74,6 +77,7 @@ class _EditGameModalState extends ConsumerState<EditGameModal> {
       newCurrency: _selectedCurrency,
       newPersonalRating: widget.game.personalRating,
       newNotes: widget.game.notes,
+      newCustomCategories: _selectedCategories,
     );
 
     widget.onGameUpdated?.call(newId);
@@ -230,6 +234,58 @@ class _EditGameModalState extends ConsumerState<EditGameModal> {
                     ],
                   ),
                 ],
+
+                // Categories Selector
+                Builder(
+                  builder: (context) {
+                    final tabsState = ref.watch(homeTabsNotifierProvider);
+                    final allCategories = tabsState.customCategories;
+                    if (allCategories.isEmpty) {
+                      return const SizedBox.shrink();
+                    }
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const SizedBox(height: 16),
+                        Text(
+                          'Categories',
+                          style: theme.textTheme.labelMedium?.copyWith(
+                            fontWeight: FontWeight.w700,
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: allCategories.map((cat) {
+                            final isSelected = _selectedCategories.contains(cat.id);
+                            return FilterChip(
+                              label: Text(cat.name),
+                              selected: isSelected,
+                              visualDensity: VisualDensity.compact,
+                              selectedColor: colorScheme.primaryContainer,
+                              checkmarkColor: colorScheme.onPrimaryContainer,
+                              labelStyle: TextStyle(
+                                fontWeight: isSelected ? FontWeight.w700 : FontWeight.normal,
+                                color: isSelected ? colorScheme.onPrimaryContainer : colorScheme.onSurface,
+                              ),
+                              onSelected: (checked) {
+                                setState(() {
+                                  if (checked) {
+                                    _selectedCategories.add(cat.id);
+                                  } else {
+                                    _selectedCategories.remove(cat.id);
+                                  }
+                                });
+                              },
+                            );
+                          }).toList(),
+                        ),
+                      ],
+                    );
+                  },
+                ),
                 const SizedBox(height: 20),
 
                 // Action Buttons

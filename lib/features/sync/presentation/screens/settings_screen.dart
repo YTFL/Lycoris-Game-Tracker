@@ -19,6 +19,7 @@ import '../../data/saf_storage_service.dart';
 import '../controllers/settings_notifier.dart';
 import '../../../update/presentation/controllers/update_notifier.dart';
 import 'markdown_viewer_screen.dart';
+import 'tab_management_screen.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -719,7 +720,45 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       body: ListView(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         children: [
-          // 1. Game Metadata (Proxy vs Developer API)
+          // 1. Home Tabs & Categories Customization
+          _buildCard(
+            context: context,
+            title: 'Library Tabs & Categories',
+            subtitle: 'Reorder, hide status tabs, or create custom category tabs.',
+            icon: Icons.tab_rounded,
+            children: [
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: colorScheme.primaryContainer.withAlpha(120),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(Icons.tune_rounded, color: colorScheme.primary, size: 22),
+                ),
+                title: const Text(
+                  'Customize Tabs & Categories',
+                  style: TextStyle(fontWeight: FontWeight.w700),
+                ),
+                subtitle: Text(
+                  'Mix, match, reorder tabs, or manage custom categories',
+                  style: theme.textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
+                ),
+                trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const TabManagementScreen()),
+                  );
+                },
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 14),
+
+          // 2. Game Metadata (Proxy vs Developer API)
           _buildCard(
             context: context,
             title: 'Game Metadata',

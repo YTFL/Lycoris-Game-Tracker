@@ -107,13 +107,14 @@ class GameEntryAdapter extends TypeAdapter<GameEntry> {
           : DateTime.fromMillisecondsSinceEpoch(fields[13] as int),
       isCustomEntry: fields[16] as bool? ?? false,
       customCoverPath: fields[17] as String?,
+      customCategories: (fields[18] as List?)?.cast<String>() ?? [],
     );
   }
 
   @override
   void write(BinaryWriter writer, GameEntry obj) {
     writer
-      ..writeByte(18)
+      ..writeByte(19)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -149,6 +150,8 @@ class GameEntryAdapter extends TypeAdapter<GameEntry> {
       ..writeByte(16)
       ..write(obj.isCustomEntry)
       ..writeByte(17)
-      ..write(obj.customCoverPath);
+      ..write(obj.customCoverPath)
+      ..writeByte(18)
+      ..write(obj.customCategories);
   }
 }

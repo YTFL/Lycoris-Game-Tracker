@@ -7,6 +7,7 @@ import '../../../../core/utils/text_field_helper.dart';
 import '../../../../core/utils/time_normalizer.dart';
 import '../../../../core/utils/value_metric_evaluator.dart';
 import '../../../sync/presentation/controllers/settings_notifier.dart';
+import '../../../home/presentation/controllers/home_tabs_notifier.dart';
 import '../../domain/models/game_entry.dart';
 import '../../domain/models/game_status.dart';
 import '../controllers/library_notifier.dart';
@@ -46,6 +47,148 @@ class _DossierScreenState extends ConsumerState<DossierScreen> {
 
   void _showAddExpenseDialog(BuildContext context, GameEntry game) {
     AddDlcDialog.show(context, game);
+  }
+
+  void _showCategorySelector(BuildContext context, GameEntry game) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final tabsState = ref.read(homeTabsNotifierProvider);
+    final allCategories = tabsState.customCategories;
+
+    if (allCategories.isEmpty) {
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          backgroundColor: colorScheme.surfaceContainerHigh,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Text('No Custom Categories', style: TextStyle(fontWeight: FontWeight.w700)),
+          content: const Text(
+            'You haven\'t created any custom categories yet. You can create them in Settings > Customize Tabs & Categories or add one right now.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () {
+                Navigator.pop(ctx);
+                _showCreateCategoryDialog(context, game);
+              },
+              child: const Text('Create Category'),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+
+    final selected = List<String>.from(game.customCategories);
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          backgroundColor: colorScheme.surfaceContainerHigh,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text('Categories', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
+              IconButton(
+                icon: const Icon(Icons.add_circle_outline_rounded),
+                tooltip: 'New Category',
+                onPressed: () async {
+                  final newCat = await _promptNewCategoryName(context);
+                  if (newCat != null && newCat.isNotEmpty) {
+                    final cat = await ref.read(homeTabsNotifierProvider.notifier).addCustomCategory(newCat);
+                    setDialogState(() {
+                      selected.add(cat.id);
+                    });
+                  }
+                },
+              ),
+            ],
+          ),
+          content: SingleChildScrollView(
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: allCategories.map((cat) {
+                final isSelected = selected.contains(cat.id);
+                return FilterChip(
+                  label: Text(cat.name),
+                  selected: isSelected,
+                  selectedColor: colorScheme.primaryContainer,
+                  checkmarkColor: colorScheme.onPrimaryContainer,
+                  labelStyle: TextStyle(
+                    fontWeight: isSelected ? FontWeight.w700 : FontWeight.normal,
+                    color: isSelected ? colorScheme.onPrimaryContainer : colorScheme.onSurface,
+                  ),
+                  onSelected: (bool checked) {
+                    setDialogState(() {
+                      if (checked) {
+                        selected.add(cat.id);
+                      } else {
+                        selected.remove(cat.id);
+                      }
+                    });
+                  },
+                );
+              }).toList(),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () async {
+                await ref.read(libraryNotifierProvider.notifier).updateGameCategories(game.id, selected);
+                if (ctx.mounted) {
+                  Navigator.pop(ctx);
+                }
+              },
+              child: const Text('Save'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<String?> _promptNewCategoryName(BuildContext context) async {
+    final controller = TextEditingController();
+    return showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Create Category'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: const InputDecoration(
+            labelText: 'Category Name',
+            hintText: 'e.g. Favorites, Top 10',
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, controller.text.trim()),
+            child: const Text('Add'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showCreateCategoryDialog(BuildContext context, GameEntry game) async {
+    final name = await _promptNewCategoryName(context);
+    if (name != null && name.isNotEmpty) {
+      final cat = await ref.read(homeTabsNotifierProvider.notifier).addCustomCategory(name);
+      await ref.read(libraryNotifierProvider.notifier).updateGameCategories(game.id, [...game.customCategories, cat.id]);
+    }
   }
 
   void _showRatingAndJournalEditor(BuildContext context, GameEntry game) {
@@ -399,25 +542,111 @@ class _DossierScreenState extends ConsumerState<DossierScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // 1. Financial & ROI Bento Grid
+                  // 1. Categories Card
+                  _buildCategoriesCard(context, game),
+                  const SizedBox(height: 16),
+
+                  // 2. Financial & ROI Bento Grid
                   _buildFinancialRoiCard(context, game, metric, primaryCurrency, convertedTotal),
                   const SizedBox(height: 16),
 
-                  // 2. Playtime & Progression
+                  // 3. Playtime & Progression
                   _buildPlaytimeCard(context, game),
                   const SizedBox(height: 16),
 
-                  // 3. Itemized Expenses / DLC Table
+                  // 4. Itemized Expenses / DLC Table
                   _buildExpensesCard(context, game),
                   const SizedBox(height: 16),
 
-                  // 4. Personal Rating & Journal Notes
+                  // 5. Personal Rating & Journal Notes
                   _buildJournalCard(context, game),
                   const SizedBox(height: 32),
                 ],
               ),
             ),
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCategoriesCard(BuildContext context, GameEntry game) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final tabsState = ref.watch(homeTabsNotifierProvider);
+    final allCategories = tabsState.customCategories;
+
+    // Resolve category names
+    final assignedCategories = game.customCategories.map((id) {
+      final match = allCategories.where((c) => c.id == id).firstOrNull;
+      return match?.name;
+    }).whereType<String>().toList();
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainer,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: colorScheme.outlineVariant.withAlpha(40)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.label_outline_rounded, size: 18, color: colorScheme.primary),
+                  const SizedBox(width: 8),
+                  Text(
+                    'CATEGORIES',
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      fontWeight: FontWeight.w800,
+                      color: colorScheme.onSurfaceVariant,
+                      letterSpacing: 1.0,
+                    ),
+                  ),
+                ],
+              ),
+              TextButton.icon(
+                icon: const Icon(Icons.edit_outlined, size: 14),
+                label: const Text('Manage'),
+                style: TextButton.styleFrom(
+                  visualDensity: VisualDensity.compact,
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                ),
+                onPressed: () => _showCategorySelector(context, game),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          if (assignedCategories.isEmpty)
+            Text(
+              'No custom categories assigned. Tap Manage to add categories.',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: colorScheme.onSurfaceVariant.withAlpha(160),
+                fontStyle: FontStyle.italic,
+              ),
+            )
+          else
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: assignedCategories.map((name) {
+                return Chip(
+                  label: Text(name),
+                  visualDensity: VisualDensity.compact,
+                  backgroundColor: colorScheme.surfaceContainerHigh,
+                  side: BorderSide(color: colorScheme.outlineVariant.withAlpha(50)),
+                  labelStyle: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 12,
+                    color: colorScheme.primary,
+                  ),
+                );
+              }).toList(),
+            ),
         ],
       ),
     );

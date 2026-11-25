@@ -1,14 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 import '../../../core/utils/currency_helper.dart';
 import '../../../core/utils/text_field_helper.dart';
 import '../../../core/utils/time_normalizer.dart';
+import '../../home/presentation/controllers/home_tabs_notifier.dart';
 import '../../tracker/domain/models/game_entry.dart';
 import '../../tracker/domain/models/game_status.dart';
 import '../../tracker/domain/models/storefront.dart';
 import '../../tracker/presentation/widgets/help_me_rate_sheet.dart';
 
-class ManualGameModal extends StatefulWidget {
+class ManualGameModal extends ConsumerStatefulWidget {
   final String defaultCurrency;
   final ValueChanged<GameEntry> onSave;
 
@@ -19,10 +21,10 @@ class ManualGameModal extends StatefulWidget {
   });
 
   @override
-  State<ManualGameModal> createState() => _ManualGameModalState();
+  ConsumerState<ManualGameModal> createState() => _ManualGameModalState();
 }
 
-class _ManualGameModalState extends State<ManualGameModal> {
+class _ManualGameModalState extends ConsumerState<ManualGameModal> {
   final _titleController = TextEditingController();
   final _coverUrlController = TextEditingController();
   final _genresController = TextEditingController();
@@ -34,6 +36,7 @@ class _ManualGameModalState extends State<ManualGameModal> {
 
   Storefront? _selectedStorefront;
   GameStatus? _selectedStatus;
+  final List<String> _selectedCategories = [];
   late String _selectedCurrency;
   bool _isFree = false;
   double _rating = 0.0;
@@ -123,6 +126,7 @@ class _ManualGameModalState extends State<ManualGameModal> {
       currency: _selectedCurrency,
       personalRating: _rating,
       notes: _notesController.text.trim(),
+      customCategories: _selectedCategories,
       addedAt: DateTime.now(),
       updatedAt: DateTime.now(),
       isCustomEntry: true,
@@ -229,6 +233,57 @@ class _ManualGameModalState extends State<ManualGameModal> {
                       },
                     ),
                     const SizedBox(height: 16),
+
+                    // Categories Selector
+                    Builder(
+                      builder: (context) {
+                        final tabsState = ref.watch(homeTabsNotifierProvider);
+                        final allCategories = tabsState.customCategories;
+                        if (allCategories.isEmpty) return const SizedBox.shrink();
+
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Categories (Optional)',
+                              style: theme.textTheme.labelMedium?.copyWith(
+                                color: colorScheme.onSurfaceVariant,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 8,
+                              children: allCategories.map((cat) {
+                                final isSelected = _selectedCategories.contains(cat.id);
+                                return FilterChip(
+                                  label: Text(cat.name),
+                                  selected: isSelected,
+                                  visualDensity: VisualDensity.compact,
+                                  selectedColor: colorScheme.primaryContainer,
+                                  checkmarkColor: colorScheme.onPrimaryContainer,
+                                  labelStyle: TextStyle(
+                                    fontWeight: isSelected ? FontWeight.w700 : FontWeight.normal,
+                                    color: isSelected ? colorScheme.onPrimaryContainer : colorScheme.onSurface,
+                                  ),
+                                  onSelected: (checked) {
+                                    setState(() {
+                                      if (checked) {
+                                        _selectedCategories.add(cat.id);
+                                      } else {
+                                        _selectedCategories.remove(cat.id);
+                                      }
+                                    });
+                                  },
+                                );
+                              }).toList(),
+                            ),
+                            const SizedBox(height: 16),
+                          ],
+                        );
+                      },
+                    ),
 
                     // Pricing
                     Row(

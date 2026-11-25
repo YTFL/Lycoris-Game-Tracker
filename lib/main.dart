@@ -1,14 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/constants/colors.dart';
+import 'core/services/local_cover_storage.dart';
 import 'core/storage/hive_registrar.dart';
 import 'features/home/presentation/screens/home_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Initialize Hive boxes and adapters
+  // Keep decoded cover artworks in memory across tab switches
+  PaintingBinding.instance.imageCache.maximumSize = 500;
+  PaintingBinding.instance.imageCache.maximumSizeBytes = 150 << 20;
+
+  // Initialize Hive boxes and permanent local cover storage
   await HiveRegistrar.init();
+  await LocalCoverStorage.init();
 
   runApp(
     const ProviderScope(

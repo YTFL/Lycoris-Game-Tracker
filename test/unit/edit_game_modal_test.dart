@@ -59,6 +59,7 @@ class FakeLibraryNotifier extends StateNotifier<LibraryState> implements Library
     required String newCurrency,
     double? newPersonalRating,
     String? newNotes,
+    List<String>? newCustomCategories,
   }) async {
     final updated = originalGame.copyWith(
       title: newTitle,
@@ -68,6 +69,7 @@ class FakeLibraryNotifier extends StateNotifier<LibraryState> implements Library
       currency: newCurrency,
       personalRating: newPersonalRating ?? originalGame.personalRating,
       notes: newNotes ?? originalGame.notes,
+      customCategories: newCustomCategories ?? originalGame.customCategories,
       updatedAt: DateTime.now(),
     );
     await repo.save(updated);

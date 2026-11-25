@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../../core/utils/currency_helper.dart';
 import '../../../../core/utils/time_normalizer.dart';
+import '../../../../core/widgets/game_cover_image.dart';
 import '../../../tracker/presentation/screens/dossier_screen.dart';
 import '../controllers/analytics_state.dart';
 
@@ -58,43 +59,19 @@ class RatingJoyTab extends StatelessWidget {
           ],
         ),
 
-        const SizedBox(height: 12),
+        const SizedBox(height: 16),
 
-        // 2. Dynamic Threshold Bento Cards (replacing split text banner)
-        Row(
-          children: [
-            Expanded(
-              child: _buildStatCard(
-                context: context,
-                title: 'Playtime Divider',
-                value: '${state.hoursThreshold.toStringAsFixed(1)} hrs',
-                subtitle: 'Median library playtime threshold',
-                icon: Icons.schedule_rounded,
-                accentColor: colorScheme.tertiary,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _buildStatCard(
-                context: context,
-                title: 'Rating Divider',
-                value: '${state.ratingThreshold.toStringAsFixed(1)} ★',
-                subtitle: 'Median library rating threshold',
-                icon: Icons.tune_rounded,
-                accentColor: colorScheme.primary,
-              ),
-            ),
-          ],
-        ),
+        // 2. Rating Distribution Card
+        _buildRatingDistributionCard(context),
 
         const SizedBox(height: 16),
 
-        // 3. The Satisfaction Quadrant Matrix Card (Redesigned)
-        _buildGoldenQuadrantCard(context),
+        // 3. Highest Rated Games Showcase
+        _buildTopRatedGamesCard(context),
 
         const SizedBox(height: 16),
 
-        // 4. Joy-Per-Dollar (Happiness ROI) Leaderboard (Normalized Colors)
+        // 4. Joy-Per-Dollar (Happiness ROI) Leaderboard
         _buildJoyPerDollarCard(context),
 
         const SizedBox(height: 32),
@@ -167,30 +144,16 @@ class RatingJoyTab extends StatelessWidget {
     );
   }
 
-  Widget _buildGoldenQuadrantCard(BuildContext context) {
+  Widget _buildRatingDistributionCard(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-
-    final categories = [
-      QuadrantCategory.timelessMasterpiece,
-      QuadrantCategory.sweetShortGem,
-      QuadrantCategory.timeTrap,
-      QuadrantCategory.earlyDrop,
+    final buckets = state.ratingDistribution;
+    final tierColors = [
+      colorScheme.primary,
+      colorScheme.secondary,
+      colorScheme.tertiary,
+      colorScheme.onSurfaceVariant,
     ];
-
-    final categoryColors = {
-      QuadrantCategory.timelessMasterpiece: colorScheme.primary,
-      QuadrantCategory.sweetShortGem: colorScheme.secondary,
-      QuadrantCategory.timeTrap: colorScheme.tertiary,
-      QuadrantCategory.earlyDrop: colorScheme.onSurfaceVariant,
-    };
-
-    final categoryIcons = {
-      QuadrantCategory.timelessMasterpiece: Icons.stars_rounded,
-      QuadrantCategory.sweetShortGem: Icons.diamond_outlined,
-      QuadrantCategory.timeTrap: Icons.hourglass_bottom_rounded,
-      QuadrantCategory.earlyDrop: Icons.exit_to_app_rounded,
-    };
 
     return Card(
       elevation: 0,
@@ -212,7 +175,7 @@ class RatingJoyTab extends StatelessWidget {
                     color: colorScheme.primary.withAlpha(25),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: Icon(Icons.grid_view_rounded, size: 18, color: colorScheme.primary),
+                  child: Icon(Icons.bar_chart_rounded, size: 18, color: colorScheme.primary),
                 ),
                 const SizedBox(width: 10),
                 Expanded(
@@ -220,14 +183,14 @@ class RatingJoyTab extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Satisfaction Matrix',
+                        'Rating Distribution',
                         style: theme.textTheme.titleMedium?.copyWith(
                           fontWeight: FontWeight.w700,
                           color: colorScheme.onSurface,
                         ),
                       ),
                       Text(
-                        'Playtime depth vs. satisfaction matrix',
+                        'Spread across ${state.totalRatedGames} rated titles',
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: colorScheme.onSurfaceVariant,
                         ),
@@ -237,142 +200,226 @@ class RatingJoyTab extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 18),
-
-            // Quadrant Sections
-            ...categories.map((cat) {
-              final gamesInCat = state.quadrantGames[cat] ?? [];
-              final color = categoryColors[cat]!;
-              final icon = categoryIcons[cat]!;
-
-              return Container(
-                margin: const EdgeInsets.only(bottom: 12),
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: colorScheme.surfaceContainerHigh,
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(
-                    color: colorScheme.outlineVariant.withAlpha(40),
-                    width: 0.8,
+            const SizedBox(height: 16),
+            if (state.totalRatedGames == 0)
+              Text(
+                'Rate games in your library to see your score distribution.',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                ),
+              )
+            else ...[
+              ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: SizedBox(
+                  height: 12,
+                  child: Row(
+                    children: buckets.asMap().entries.map((entry) {
+                      final i = entry.key;
+                      final b = entry.value;
+                      if (b.count == 0) return const SizedBox.shrink();
+                      return Expanded(
+                        flex: b.count,
+                        child: Container(color: tierColors[i % tierColors.length]),
+                      );
+                    }).toList(),
                   ),
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(5),
-                          decoration: BoxDecoration(
-                            color: color.withAlpha(25),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Icon(icon, size: 14, color: color),
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          cat.title,
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            fontWeight: FontWeight.w800,
+              ),
+              const SizedBox(height: 14),
+              ...buckets.asMap().entries.map((entry) {
+                final i = entry.key;
+                final b = entry.value;
+                final color = tierColors[i % tierColors.length];
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 5),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 10,
+                        height: 10,
+                        decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          '${b.label} (${b.rangeLabel})',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            fontWeight: FontWeight.w700,
                             color: colorScheme.onSurface,
                           ),
                         ),
-                        const Spacer(),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: colorScheme.surfaceContainerHighest,
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(color: colorScheme.outlineVariant.withAlpha(60)),
-                          ),
-                          child: Text(
-                            '${gamesInCat.length}',
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w800,
-                              color: colorScheme.onSurface,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      cat.subtitle,
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                        fontSize: 10,
                       ),
-                    ),
-                    const SizedBox(height: 10),
-
-                    if (gamesInCat.isEmpty)
                       Text(
-                        'No games in this quadrant yet.',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: colorScheme.onSurfaceVariant.withAlpha(120),
-                          fontStyle: FontStyle.italic,
-                          fontSize: 11,
+                        '${b.count} (${b.percentage.toStringAsFixed(0)}%)',
+                        style: theme.textTheme.labelMedium?.copyWith(
+                          fontWeight: FontWeight.w800,
+                          color: colorScheme.onSurfaceVariant,
                         ),
-                      )
-                    else
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: gamesInCat.map((entry) {
-                          return InkWell(
-                            borderRadius: BorderRadius.circular(8),
-                            onTap: () => _openDossier(context, entry.game.id),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                              decoration: BoxDecoration(
-                                color: colorScheme.surfaceContainerLowest,
-                                borderRadius: BorderRadius.circular(8),
-                                border: Border.all(
-                                  color: colorScheme.outlineVariant.withAlpha(50),
+                      ),
+                    ],
+                  ),
+                );
+              }),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTopRatedGamesCard(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final games = state.topRatedGames;
+
+    return Card(
+      elevation: 0,
+      color: colorScheme.surfaceContainer,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: colorScheme.outlineVariant.withAlpha(50)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(7),
+                  decoration: BoxDecoration(
+                    color: colorScheme.secondary.withAlpha(25),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(Icons.workspace_premium_rounded, size: 18, color: colorScheme.secondary),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Highest Rated Games',
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w700,
+                          color: colorScheme.onSurface,
+                        ),
+                      ),
+                      Text(
+                        'Your personal all-time favorites',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            if (games.isEmpty)
+              Text(
+                'No rated games yet.',
+                style: theme.textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
+              )
+            else
+              ListView.separated(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: games.length,
+                separatorBuilder: (_, _) => Divider(
+                  color: colorScheme.outlineVariant.withAlpha(50),
+                  height: 14,
+                ),
+                itemBuilder: (context, index) {
+                  final game = games[index];
+                  return InkWell(
+                    borderRadius: BorderRadius.circular(10),
+                    onTap: () => _openDossier(context, game.id),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      child: Row(
+                        children: [
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(6),
+                            child: SizedBox(
+                              width: 36,
+                              height: 48,
+                              child: game.coverUrl != null && game.coverUrl!.isNotEmpty
+                                  ? GameCoverImage(
+                                      imageUrl: game.coverUrl!,
+                                      memCacheWidth: 120,
+                                      fit: BoxFit.cover,
+                                      placeholder: Container(
+                                        color: colorScheme.surfaceContainerHigh,
+                                      ),
+                                      errorWidget: Container(
+                                        color: colorScheme.surfaceContainerHigh,
+                                        child: Icon(Icons.sports_esports, size: 16, color: colorScheme.onSurfaceVariant),
+                                      ),
+                                    )
+                                  : Container(
+                                      color: colorScheme.surfaceContainerHigh,
+                                      child: Icon(Icons.sports_esports, size: 16, color: colorScheme.onSurfaceVariant),
+                                    ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  game.title,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: theme.textTheme.bodyMedium?.copyWith(
+                                    fontWeight: FontWeight.w700,
+                                    color: colorScheme.onSurface,
+                                  ),
                                 ),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  ConstrainedBox(
-                                    constraints: const BoxConstraints(maxWidth: 140),
-                                    child: Text(
-                                      entry.game.title,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: theme.textTheme.bodySmall?.copyWith(
-                                        fontWeight: FontWeight.w700,
-                                        color: colorScheme.onSurface,
-                                      ),
-                                    ),
+                                Text(
+                                  '${game.storefront.label} • ${TimeNormalizer.format(game.totalMinutesPlayed)}',
+                                  style: theme.textTheme.labelSmall?.copyWith(
+                                    color: colorScheme.onSurfaceVariant,
                                   ),
-                                  const SizedBox(width: 8),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
-                                    decoration: BoxDecoration(
-                                      color: color.withAlpha(20),
-                                      borderRadius: BorderRadius.circular(4),
-                                    ),
-                                    child: Text(
-                                      '${entry.rating.toStringAsFixed(1)}★ • ${entry.hours.toStringAsFixed(0)}h',
-                                      style: TextStyle(
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.w800,
-                                        color: color,
-                                      ),
-                                    ),
-                                  ),
-                                ],
+                                ),
+                              ],
+                            ),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: colorScheme.surfaceContainerHighest,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: colorScheme.outlineVariant.withAlpha(60),
                               ),
                             ),
-                          );
-                        }).toList(),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.star_rounded, size: 12, color: colorScheme.primary),
+                                const SizedBox(width: 3),
+                                Text(
+                                  game.personalRating.toStringAsFixed(1),
+                                  style: TextStyle(
+                                    color: colorScheme.onSurface,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
-                  ],
-                ),
-              );
-            }),
+                    ),
+                  );
+                },
+              ),
           ],
         ),
       ),
@@ -404,7 +451,11 @@ class RatingJoyTab extends StatelessWidget {
                     color: colorScheme.primary.withAlpha(25),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: Icon(Icons.sentiment_very_satisfied_rounded, size: 18, color: colorScheme.primary),
+                  child: Icon(
+                    Icons.sentiment_very_satisfied_rounded,
+                    size: 18,
+                    color: colorScheme.primary,
+                  ),
                 ),
                 const SizedBox(width: 10),
                 Expanded(
@@ -444,7 +495,10 @@ class RatingJoyTab extends StatelessWidget {
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
                 itemCount: items.length,
-                separatorBuilder: (_, _) => Divider(color: colorScheme.outlineVariant.withAlpha(50), height: 16),
+                separatorBuilder: (_, _) => Divider(
+                  color: colorScheme.outlineVariant.withAlpha(50),
+                  height: 16,
+                ),
                 itemBuilder: (context, index) {
                   final entry = items[index];
                   final game = entry.game;
@@ -480,7 +534,9 @@ class RatingJoyTab extends StatelessWidget {
                                 ),
                                 Text(
                                   '${game.storefront.label} • Paid ${CurrencyHelper.format(entry.convertedCost, currencyCode: state.primaryCurrency)} • ${TimeNormalizer.format(game.totalMinutesPlayed)}',
-                                  style: theme.textTheme.labelSmall?.copyWith(color: colorScheme.onSurfaceVariant),
+                                  style: theme.textTheme.labelSmall?.copyWith(
+                                    color: colorScheme.onSurfaceVariant,
+                                  ),
                                 ),
                               ],
                             ),
@@ -490,7 +546,9 @@ class RatingJoyTab extends StatelessWidget {
                             decoration: BoxDecoration(
                               color: colorScheme.surfaceContainerHighest,
                               borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: colorScheme.outlineVariant.withAlpha(60)),
+                              border: Border.all(
+                                color: colorScheme.outlineVariant.withAlpha(60),
+                              ),
                             ),
                             child: Row(
                               mainAxisSize: MainAxisSize.min,

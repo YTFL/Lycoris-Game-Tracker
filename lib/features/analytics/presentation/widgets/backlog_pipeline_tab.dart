@@ -1,11 +1,14 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/utils/currency_helper.dart';
 import '../../../tracker/domain/models/game_status.dart';
 import '../../../tracker/presentation/screens/dossier_screen.dart';
+import '../../domain/models/backlog_recommendation.dart';
+import '../controllers/analytics_notifier.dart';
 import '../controllers/analytics_state.dart';
 
-class BacklogPipelineTab extends StatelessWidget {
+class BacklogPipelineTab extends ConsumerWidget {
   final AnalyticsState state;
 
   const BacklogPipelineTab({
@@ -20,10 +23,28 @@ class BacklogPipelineTab extends StatelessWidget {
     );
   }
 
+  Color _statusColor(GameStatus status, ColorScheme colorScheme) {
+    switch (status) {
+      case GameStatus.backlog:
+        return colorScheme.onSurfaceVariant;
+      case GameStatus.playing:
+        return colorScheme.primary;
+      case GameStatus.completed:
+        return colorScheme.secondary;
+      case GameStatus.mastered:
+        return colorScheme.tertiary;
+      case GameStatus.abandoned:
+        return colorScheme.error;
+      case GameStatus.wishlist:
+        return colorScheme.primary.withAlpha(150);
+    }
+  }
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final recommendation = ref.watch(backlogRecommendationProvider);
 
     return ListView(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -46,7 +67,10 @@ class BacklogPipelineTab extends StatelessWidget {
               child: _buildStatCard(
                 context: context,
                 title: 'Backlog Sunk Capital',
-                value: CurrencyHelper.format(state.backlogCapital, currencyCode: state.primaryCurrency),
+                value: CurrencyHelper.format(
+                  state.backlogCapital,
+                  currencyCode: state.primaryCurrency,
+                ),
                 subtitle: '${state.backlogCapitalPercent.toStringAsFixed(0)}% of total budget',
                 icon: Icons.inventory_2_outlined,
                 accentColor: colorScheme.secondary,
@@ -61,7 +85,7 @@ class BacklogPipelineTab extends StatelessWidget {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           decoration: BoxDecoration(
-            color: colorScheme.surfaceContainerHigh,
+            color: colorScheme.surfaceContainer,
             borderRadius: BorderRadius.circular(14),
             border: Border.all(color: colorScheme.outlineVariant.withAlpha(50)),
           ),
@@ -88,7 +112,7 @@ class BacklogPipelineTab extends StatelessWidget {
                       ),
                     ),
                     Text(
-                      '${state.playedGamesCount} played titles • ${state.unplayedGamesCount} unplayed backlog titles',
+                      '${state.playedGamesCount} played titles • ${state.unplayedGamesCount} unplayed titles',
                       style: theme.textTheme.labelSmall?.copyWith(
                         color: colorScheme.onSurfaceVariant,
                       ),
@@ -99,7 +123,7 @@ class BacklogPipelineTab extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
-                  color: colorScheme.surfaceContainerHighest,
+                  color: colorScheme.surfaceContainerHigh,
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(color: colorScheme.outlineVariant.withAlpha(60)),
                 ),
@@ -117,9 +141,9 @@ class BacklogPipelineTab extends StatelessWidget {
 
         const SizedBox(height: 16),
 
-        // 2. Next Quick Win Backlog Recommender (if available)
-        if (state.nextQuickWin != null) ...[
-          _buildNextQuickWinCard(context, state.nextQuickWin!),
+        // 2. Smart Backlog Recommender (On-demand ML pick, locked until status changes)
+        if (recommendation != null) ...[
+          _buildRecommendationCard(context, recommendation),
           const SizedBox(height: 16),
         ],
 
@@ -201,86 +225,229 @@ class BacklogPipelineTab extends StatelessWidget {
     );
   }
 
-  Widget _buildNextQuickWinCard(BuildContext context, dynamic game) {
+  Widget _buildRecommendationCard(
+    BuildContext context,
+    BacklogRecommendation rec,
+  ) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final game = rec.game;
+    final matchPercent = (rec.matchScore * 100).round();
 
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainer,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: colorScheme.primary.withAlpha(70)),
+    return Card(
+      elevation: 0,
+      color: colorScheme.surfaceContainer,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(18),
+        side: BorderSide(color: colorScheme.primary.withAlpha(75)),
       ),
-      child: Row(
-        children: [
-          if (game.coverUrl != null)
-            ClipRRect(
-              borderRadius: BorderRadius.circular(8),
-              child: CachedNetworkImage(
-                imageUrl: game.coverUrl!,
-                width: 44,
-                height: 60,
-                fit: BoxFit.cover,
-                errorWidget: (context, url, error) => Container(
-                  width: 44,
-                  height: 60,
-                  color: colorScheme.surfaceContainerHighest,
-                  child: const Icon(Icons.sports_esports),
-                ),
-              ),
-            )
-          else
-            Container(
-              width: 44,
-              height: 60,
-              decoration: BoxDecoration(
-                color: colorScheme.surfaceContainerHighest,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Icon(Icons.sports_esports, color: colorScheme.primary),
-            ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Icon(Icons.bolt_rounded, size: 14, color: colorScheme.primary),
-                    const SizedBox(width: 4),
-                    Text(
-                      'BACKLOG RECOMMENDATION',
+      child: InkWell(
+        borderRadius: BorderRadius.circular(18),
+        onTap: () => _openDossier(context, game.id),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header row: label + match confidence pill
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: colorScheme.primary.withAlpha(25),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(
+                      Icons.auto_awesome_rounded,
+                      size: 15,
+                      color: colorScheme.primary,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'SMART BACKLOG PICK',
                       style: theme.textTheme.labelSmall?.copyWith(
                         fontWeight: FontWeight.w800,
                         color: colorScheme.primary,
-                        letterSpacing: 0.5,
+                        letterSpacing: 0.6,
                       ),
                     ),
-                  ],
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  game.title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.w800,
-                    color: colorScheme.onSurface,
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: colorScheme.primary.withAlpha(25),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: colorScheme.primary.withAlpha(70)),
+                    ),
+                    child: Text(
+                      '$matchPercent% Match',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w800,
+                        color: colorScheme.primary,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 14),
+
+              // Main content row: Cover artwork + Title/Reason/Chips
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(10),
+                    child: SizedBox(
+                      width: 62,
+                      height: 84,
+                      child: game.coverUrl != null && game.coverUrl!.isNotEmpty
+                          ? CachedNetworkImage(
+                              imageUrl: game.coverUrl!,
+                              fit: BoxFit.cover,
+                              placeholder: (_, _) => Container(
+                                color: colorScheme.surfaceContainerHigh,
+                              ),
+                              errorWidget: (_, _, _) => Container(
+                                color: colorScheme.surfaceContainerHigh,
+                                child: Icon(
+                                  Icons.sports_esports_rounded,
+                                  color: colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                            )
+                          : Container(
+                              color: colorScheme.surfaceContainerHigh,
+                              child: Icon(
+                                Icons.sports_esports_rounded,
+                                color: colorScheme.primary,
+                              ),
+                            ),
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          game.title,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w800,
+                            color: colorScheme.onSurface,
+                            height: 1.2,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          rec.primaryReason,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: colorScheme.onSurfaceVariant,
+                            height: 1.3,
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        Wrap(
+                          spacing: 6,
+                          runSpacing: 6,
+                          children: [
+                            // Predicted Enjoyment Badge
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 7,
+                                vertical: 3,
+                              ),
+                              decoration: BoxDecoration(
+                                color: colorScheme.surfaceContainerHighest,
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(
+                                  color: colorScheme.outlineVariant.withAlpha(60),
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.star_rounded,
+                                    size: 12,
+                                    color: colorScheme.primary,
+                                  ),
+                                  const SizedBox(width: 3),
+                                  Text(
+                                    'Est. ${rec.predictedRating.toStringAsFixed(1)}',
+                                    style: TextStyle(
+                                      fontSize: 10.5,
+                                      fontWeight: FontWeight.w800,
+                                      color: colorScheme.onSurface,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            ...rec.matchingFactors.map(
+                              (factor) => Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 7,
+                                  vertical: 3,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: colorScheme.surfaceContainerHigh,
+                                  borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(
+                                    color: colorScheme.outlineVariant.withAlpha(45),
+                                  ),
+                                ),
+                                child: Text(
+                                  factor,
+                                  style: TextStyle(
+                                    fontSize: 10.5,
+                                    fontWeight: FontWeight.w600,
+                                    color: colorScheme.onSurfaceVariant,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 14),
+
+              // Action CTA
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.tonalIcon(
+                  onPressed: () => _openDossier(context, game.id),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: colorScheme.primary.withAlpha(30),
+                    foregroundColor: colorScheme.primary,
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                  icon: const Icon(Icons.play_arrow_rounded, size: 18),
+                  label: const Text(
+                    'Start Playing Next',
+                    style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
                   ),
                 ),
-                Text(
-                  '${game.storefront.label} • 0 hrs played',
-                  style: theme.textTheme.labelSmall?.copyWith(color: colorScheme.onSurfaceVariant),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
-          FilledButton.tonal(
-            onPressed: () => _openDossier(context, game.id),
-            child: const Text('Play Next'),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -319,7 +486,11 @@ class BacklogPipelineTab extends StatelessWidget {
                     color: colorScheme.primary.withAlpha(25),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: Icon(Icons.filter_list_rounded, size: 18, color: colorScheme.primary),
+                  child: Icon(
+                    Icons.filter_list_rounded,
+                    size: 18,
+                    color: colorScheme.primary,
+                  ),
                 ),
                 const SizedBox(width: 10),
                 Expanded(
@@ -350,6 +521,7 @@ class BacklogPipelineTab extends StatelessWidget {
               final count = state.statusCounts[status] ?? 0;
               final percent = totalGames > 0 ? (count / totalGames) * 100 : 0.0;
               final ratio = totalGames > 0 ? (count / totalGames) : 0.0;
+              final normalizedColor = _statusColor(status, colorScheme);
 
               return Padding(
                 padding: const EdgeInsets.symmetric(vertical: 8),
@@ -358,7 +530,7 @@ class BacklogPipelineTab extends StatelessWidget {
                   children: [
                     Row(
                       children: [
-                        Icon(status.icon, size: 16, color: status.color),
+                        Icon(status.icon, size: 16, color: normalizedColor),
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
@@ -385,7 +557,7 @@ class BacklogPipelineTab extends StatelessWidget {
                         value: ratio,
                         minHeight: 6,
                         backgroundColor: colorScheme.surfaceContainerHighest,
-                        valueColor: AlwaysStoppedAnimation(status.color),
+                        valueColor: AlwaysStoppedAnimation(normalizedColor),
                       ),
                     ),
                   ],
@@ -464,7 +636,9 @@ class BacklogPipelineTab extends StatelessWidget {
                       ),
                       Text(
                         'Abandoned Playtime',
-                        style: theme.textTheme.labelSmall?.copyWith(color: colorScheme.onSurfaceVariant),
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
+                        ),
                       ),
                     ],
                   ),
@@ -474,7 +648,10 @@ class BacklogPipelineTab extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        CurrencyHelper.format(state.abandonedSpend, currencyCode: state.primaryCurrency),
+                        CurrencyHelper.format(
+                          state.abandonedSpend,
+                          currencyCode: state.primaryCurrency,
+                        ),
                         style: theme.textTheme.titleMedium?.copyWith(
                           fontWeight: FontWeight.w900,
                           color: colorScheme.error,
@@ -482,7 +659,9 @@ class BacklogPipelineTab extends StatelessWidget {
                       ),
                       Text(
                         'Sunk Spend',
-                        style: theme.textTheme.labelSmall?.copyWith(color: colorScheme.onSurfaceVariant),
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
+                        ),
                       ),
                     ],
                   ),
@@ -500,7 +679,9 @@ class BacklogPipelineTab extends StatelessWidget {
                       ),
                       Text(
                         'of Total Hours Lost',
-                        style: theme.textTheme.labelSmall?.copyWith(color: colorScheme.onSurfaceVariant),
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
+                        ),
                       ),
                     ],
                   ),

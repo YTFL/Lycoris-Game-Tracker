@@ -1,7 +1,11 @@
+import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hive/hive.dart';
+import 'package:lycoris/features/analytics/domain/services/backlog_ml_recommender.dart';
 import 'package:lycoris/features/analytics/presentation/controllers/analytics_notifier.dart';
 import 'package:lycoris/features/analytics/presentation/controllers/analytics_state.dart';
 import 'package:lycoris/features/search/data/igdb_service.dart';
+import 'package:lycoris/features/sync/data/settings_repository.dart';
 import 'package:lycoris/features/tracker/domain/models/additional_expense.dart';
 import 'package:lycoris/features/tracker/domain/models/game_entry.dart';
 import 'package:lycoris/features/tracker/domain/models/game_status.dart';
@@ -17,83 +21,170 @@ void main() {
       expect(AnalyticsEngine.computeMedian([100.0, 5.0, 10.0]), 10.0);
     });
 
-    test('The Golden Quadrant classifies correctly with dynamic median thresholds', () {
+    test('BacklogMlRecommender learns from rated games and never picks wishlist items', () {
       final now = DateTime.now();
       final games = [
-        // 1. Masterpiece: High time, High rating
+        // Past rated RPGs (high ratings)
         GameEntry(
-          id: '1',
-          igdbId: 101,
-          title: 'Masterpiece RPG',
+          id: 'r1',
+          igdbId: 1,
+          title: 'RPG Hit 1',
           genres: ['RPG'],
           storefront: Storefront.steam,
           status: GameStatus.completed,
-          totalMinutesPlayed: 3600, // 60h
-          basePrice: 60.0,
+          totalMinutesPlayed: 3000,
           personalRating: 9.5,
           addedAt: now,
           updatedAt: now,
         ),
-        // 2. Sweet & Short Gem: Low time, High rating
         GameEntry(
-          id: '2',
-          igdbId: 102,
-          title: 'Indie Gem',
-          genres: ['Indie', 'Platformer'],
+          id: 'r2',
+          igdbId: 2,
+          title: 'RPG Hit 2',
+          genres: ['RPG'],
           storefront: Storefront.steam,
-          status: GameStatus.completed,
-          totalMinutesPlayed: 300, // 5h
-          basePrice: 15.0,
-          personalRating: 9.0,
+          status: GameStatus.mastered,
+          totalMinutesPlayed: 4200,
+          personalRating: 9.2,
           addedAt: now,
           updatedAt: now,
         ),
-        // 3. Time Trap: High time, Lower rating
+        // Past rated Shooter (low ratings)
         GameEntry(
-          id: '3',
-          igdbId: 103,
-          title: 'Endless Grind',
+          id: 'r3',
+          igdbId: 3,
+          title: 'Shooter Miss',
           genres: ['Shooter'],
-          storefront: Storefront.steam,
-          status: GameStatus.playing,
-          totalMinutesPlayed: 4800, // 80h
-          basePrice: 0.0,
-          personalRating: 5.5,
+          storefront: Storefront.epicGames,
+          status: GameStatus.abandoned,
+          totalMinutesPlayed: 180,
+          personalRating: 4.5,
           addedAt: now,
           updatedAt: now,
         ),
-        // 4. Early Drop: Low time, Lower rating
+        // Wishlist RPG (must NEVER be recommended)
         GameEntry(
-          id: '4',
-          igdbId: 104,
-          title: 'Boring Game',
-          genres: ['Adventure'],
+          id: 'w1',
+          igdbId: 4,
+          title: 'Wishlist RPG',
+          genres: ['RPG'],
           storefront: Storefront.steam,
-          status: GameStatus.abandoned,
-          totalMinutesPlayed: 120, // 2h
-          basePrice: 30.0,
-          personalRating: 4.0,
+          status: GameStatus.wishlist,
+          addedAt: now,
+          updatedAt: now,
+        ),
+        // Backlog Shooter
+        GameEntry(
+          id: 'b1',
+          igdbId: 5,
+          title: 'Backlog Shooter',
+          genres: ['Shooter'],
+          storefront: Storefront.epicGames,
+          status: GameStatus.backlog,
+          addedAt: now,
+          updatedAt: now,
+        ),
+        // Backlog RPG (expected winner)
+        GameEntry(
+          id: 'b2',
+          igdbId: 6,
+          title: 'Backlog RPG',
+          genres: ['RPG'],
+          storefront: Storefront.steam,
+          status: GameStatus.backlog,
           addedAt: now,
           updatedAt: now,
         ),
       ];
 
-      final state = AnalyticsEngine.compute(
-        games: games,
-        primaryCurrency: 'USD',
-        exchangeRates: null,
-        currentTab: AnalyticsTab.ratingJoy,
-      );
+      final rec = BacklogMlRecommender.recommend(games: games);
+      expect(rec, isNotNull);
+      expect(rec!.game.id, 'b2');
+      expect(rec.game.status, GameStatus.backlog);
+      expect(rec.predictedRating, greaterThan(8.0));
 
-      final masterpieces = state.quadrantGames[QuadrantCategory.timelessMasterpiece]!;
-      final gems = state.quadrantGames[QuadrantCategory.sweetShortGem]!;
-      final traps = state.quadrantGames[QuadrantCategory.timeTrap]!;
-      final drops = state.quadrantGames[QuadrantCategory.earlyDrop]!;
+      // Verify wishlist-only returns null
+      final wishlistOnly = games.where((g) => g.status != GameStatus.backlog).toList();
+      expect(BacklogMlRecommender.recommend(games: wishlistOnly), isNull);
+    });
 
-      expect(masterpieces.any((e) => e.game.title == 'Masterpiece RPG'), isTrue);
-      expect(gems.any((e) => e.game.title == 'Indie Gem'), isTrue);
-      expect(traps.any((e) => e.game.title == 'Endless Grind'), isTrue);
-      expect(drops.any((e) => e.game.title == 'Boring Game'), isTrue);
+    test('BacklogRecommendationNotifier locks recommendation until status leaves backlog', () async {
+      final tempDir = await Directory.systemTemp.createTemp('hive_analytics_rec_test_');
+      Hive.init(tempDir.path);
+      final settingsBox = await Hive.openBox<dynamic>('test_analytics_settings');
+      final settingsRepo = SettingsRepository(settingsBox);
+
+      try {
+        final now = DateTime.now();
+        final rated = GameEntry(
+          id: 'rated_rpg',
+          igdbId: 10,
+          title: 'Beloved RPG',
+          genres: ['RPG'],
+          storefront: Storefront.steam,
+          status: GameStatus.completed,
+          totalMinutesPlayed: 2400,
+          personalRating: 9.5,
+          addedAt: now,
+          updatedAt: now,
+        );
+        final backlog1 = GameEntry(
+          id: 'b_rpg',
+          igdbId: 11,
+          title: 'First Backlog RPG',
+          genres: ['RPG'],
+          storefront: Storefront.steam,
+          status: GameStatus.backlog,
+          addedAt: now,
+          updatedAt: now,
+        );
+        final backlog2 = GameEntry(
+          id: 'b_indie',
+          igdbId: 12,
+          title: 'Second Backlog Game',
+          genres: ['Indie'],
+          storefront: Storefront.gog,
+          status: GameStatus.backlog,
+          addedAt: now,
+          updatedAt: now,
+        );
+
+        final notifier = BacklogRecommendationNotifier(
+          settingsRepo: settingsRepo,
+          initialGames: [rated, backlog1, backlog2],
+          primaryCurrency: 'USD',
+          exchangeRates: null,
+        );
+
+        expect(notifier.state?.game.id, 'b_rpg');
+
+        // Adding a new higher-affinity backlog game or rating another game should NOT change
+        // the locked recommendation while b_rpg is still in backlog!
+        final newBetterBacklog = GameEntry(
+          id: 'b_rpg_better',
+          igdbId: 13,
+          title: 'New RPG',
+          genres: ['RPG'],
+          storefront: Storefront.steam,
+          status: GameStatus.backlog,
+          addedAt: now,
+          updatedAt: now,
+        );
+        notifier.onLibraryChanged([rated, backlog1, backlog2, newBetterBacklog]);
+        expect(notifier.state?.game.id, 'b_rpg');
+
+        // Once b_rpg changes status to playing (or completed/mastered/abandoned),
+        // the recommender triggers on demand and selects a new backlog game.
+        final backlog1Playing = backlog1.copyWith(status: GameStatus.playing);
+        notifier.onLibraryChanged([rated, backlog1Playing, backlog2, newBetterBacklog]);
+        expect(notifier.state?.game.id, 'b_rpg_better');
+      } finally {
+        await settingsBox.close();
+        await Hive.deleteBoxFromDisk('test_analytics_settings');
+        if (await tempDir.exists()) {
+          await tempDir.delete(recursive: true);
+        }
+      }
     });
 
     test('5-Tier Playtime Commitment Buckets bucket games accurately', () {

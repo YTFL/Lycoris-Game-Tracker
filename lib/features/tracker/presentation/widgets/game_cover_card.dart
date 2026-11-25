@@ -1,6 +1,6 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import '../../../../core/utils/time_normalizer.dart';
+import '../../../../core/widgets/game_cover_image.dart';
 import '../../domain/models/game_entry.dart';
 
 class GameCoverCard extends StatelessWidget {
@@ -56,19 +56,14 @@ class GameCoverCard extends StatelessWidget {
                 children: [
                   // 1. Cover Artwork
                   if (game.coverUrl != null && game.coverUrl!.isNotEmpty)
-                    CachedNetworkImage(
+                    GameCoverImage(
                       imageUrl: game.coverUrl!,
+                      memCacheWidth: 320,
                       fit: BoxFit.cover,
-                      placeholder: (context, url) => Container(
+                      placeholder: Container(
                         color: colorScheme.surfaceContainerHigh,
-                        child: Center(
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: colorScheme.primary,
-                          ),
-                        ),
                       ),
-                      errorWidget: (context, url, error) => _buildPlaceholder(colorScheme),
+                      errorWidget: _buildPlaceholder(colorScheme),
                     )
                   else
                     _buildPlaceholder(colorScheme),

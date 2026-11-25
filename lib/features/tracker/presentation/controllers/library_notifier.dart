@@ -87,6 +87,7 @@ class LibraryNotifier extends StateNotifier<LibraryState> {
     required String newCurrency,
     required double newPersonalRating,
     required String newNotes,
+    List<String>? newCustomCategories,
   }) async {
     final hasStorefrontChanged = originalGame.storefront != newStorefront;
 
@@ -106,6 +107,7 @@ class LibraryNotifier extends StateNotifier<LibraryState> {
         currency: newCurrency,
         personalRating: newPersonalRating,
         notes: newNotes,
+        customCategories: newCustomCategories ?? originalGame.customCategories,
         updatedAt: DateTime.now(),
       );
 
@@ -119,6 +121,7 @@ class LibraryNotifier extends StateNotifier<LibraryState> {
         currency: newCurrency,
         personalRating: newPersonalRating,
         notes: newNotes,
+        customCategories: newCustomCategories ?? originalGame.customCategories,
         updatedAt: DateTime.now(),
       );
       await _gameRepo.save(updated);
@@ -186,6 +189,31 @@ class LibraryNotifier extends StateNotifier<LibraryState> {
 
   Future<void> deleteGame(String gameId) async {
     await _gameRepo.delete(gameId);
+  }
+
+  Future<void> updateGameCategories(String gameId, List<String> categories) async {
+    final game = _gameRepo.getById(gameId);
+    if (game != null) {
+      final updated = game.copyWith(
+        customCategories: categories,
+        updatedAt: DateTime.now(),
+      );
+      await _gameRepo.save(updated);
+    }
+  }
+
+  Future<void> removeCategoryFromAllGames(String categoryId) async {
+    final games = _gameRepo.getAll();
+    for (final game in games) {
+      if (game.customCategories.contains(categoryId)) {
+        final updatedList = game.customCategories.where((c) => c != categoryId).toList();
+        final updatedGame = game.copyWith(
+          customCategories: updatedList,
+          updatedAt: DateTime.now(),
+        );
+        await _gameRepo.save(updatedGame);
+      }
+    }
   }
 
   Future<void> clearAll() async {

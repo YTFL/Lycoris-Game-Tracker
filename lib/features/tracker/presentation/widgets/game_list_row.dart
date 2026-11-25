@@ -1,6 +1,6 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import '../../../../core/utils/time_normalizer.dart';
+import '../../../../core/widgets/game_cover_image.dart';
 import '../../domain/models/game_entry.dart';
 
 class GameListRow extends StatelessWidget {
@@ -41,13 +41,14 @@ class GameListRow extends StatelessWidget {
                 width: 44,
                 height: 58,
                 child: game.coverUrl != null && game.coverUrl!.isNotEmpty
-                    ? CachedNetworkImage(
+                    ? GameCoverImage(
                         imageUrl: game.coverUrl!,
+                        memCacheWidth: 120,
                         fit: BoxFit.cover,
-                        placeholder: (c, u) => Container(
+                        placeholder: Container(
                           color: colorScheme.surfaceContainerHigh,
                         ),
-                        errorWidget: (c, u, e) => _buildPlaceholder(colorScheme),
+                        errorWidget: _buildPlaceholder(colorScheme),
                       )
                     : _buildPlaceholder(colorScheme),
               ),

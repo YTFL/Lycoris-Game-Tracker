@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [Unreleased]
+
+### Added
+- **Customizable Home Tabs & Reordering**:
+  - Ability to reorder library tabs in any sequence with interactive drag-and-drop using `ReorderableListView`.
+  - Mix and match default status tabs and custom user categories freely.
+  - Ability to toggle visibility to hide or show main status tabs (`All`, `Playing`, `Backlog`, `Completed`, `Mastered`, `Abandoned`, `Wishlist`). Built-in tabs cannot be permanently deleted, only hidden, with a safeguard requiring at least one tab to remain visible at all times.
+  - Ability to create, rename, and delete custom user category tabs (e.g., *Favorites*, *Co-op*, *Speedrun*).
+  - Quick "Reset to Defaults" option to restore standard tab order and visibility while retaining custom categories and their assignments.
+- **Dedicated Settings Page for Tab & Category Management**:
+  - Added a dedicated "Customize Tabs & Categories" management screen accessible from the Settings page.
+- **Dedicated Category Assignment in Game Screens**:
+  - Added a separate, dedicated "Categories" multi-chip selector on the Game Dossier screen, Edit Game modal, Game Intake screen, and Manual Game modal instead of overloading the status dropdown.
+  - Deleting a custom category automatically cleans up the category reference across all games in the library.
+
+---
+
 ## [1.1.0] - 2026-11-23
 
 ### Added

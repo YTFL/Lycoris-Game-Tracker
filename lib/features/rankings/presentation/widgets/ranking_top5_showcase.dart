@@ -1,6 +1,6 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import '../../../../core/utils/time_normalizer.dart';
+import '../../../../core/widgets/game_cover_image.dart';
 import '../../domain/models/ranking_tier.dart';
 import '../controllers/rankings_state.dart';
 
@@ -152,10 +152,11 @@ class RankingTop5Showcase extends StatelessWidget {
             children: [
             // Artwork
             if (item.game.coverUrl != null && item.game.coverUrl!.isNotEmpty)
-              CachedNetworkImage(
+              GameCoverImage(
                 imageUrl: item.game.coverUrl!,
+                memCacheWidth: 320,
                 fit: BoxFit.cover,
-                errorWidget: (_, _, _) => const SizedBox(),
+                errorWidget: const SizedBox(),
               ),
 
             // Scrim
@@ -322,10 +323,11 @@ class RankingTop5Showcase extends StatelessWidget {
               ),
               clipBehavior: Clip.antiAlias,
               child: item.game.coverUrl != null && item.game.coverUrl!.isNotEmpty
-                  ? CachedNetworkImage(
+                  ? GameCoverImage(
                       imageUrl: item.game.coverUrl!,
+                      memCacheWidth: 120,
                       fit: BoxFit.cover,
-                      errorWidget: (_, _, _) => const SizedBox(),
+                      errorWidget: const SizedBox(),
                     )
                   : const SizedBox(),
             ),

@@ -1,11 +1,16 @@
+import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/services/exchange_rate_service.dart';
 import '../../../../core/utils/currency_helper.dart';
+import '../../../sync/data/settings_repository.dart';
 import '../../../sync/presentation/controllers/settings_notifier.dart';
 import '../../../tracker/domain/models/game_entry.dart';
 import '../../../tracker/domain/models/game_status.dart';
 import '../../../tracker/domain/models/storefront.dart';
 import '../../../tracker/presentation/controllers/library_notifier.dart';
+import '../../../tracker/presentation/controllers/library_state.dart';
+import '../../domain/models/backlog_recommendation.dart';
+import '../../domain/services/backlog_ml_recommender.dart';
 import 'analytics_state.dart';
 
 final analyticsTabProvider = StateProvider<AnalyticsTab>((ref) => AnalyticsTab.overview);
@@ -23,6 +28,163 @@ final analyticsStateProvider = Provider<AnalyticsState>((ref) {
     currentTab: currentTab,
   );
 });
+
+final backlogRecommendationProvider =
+    StateNotifierProvider<BacklogRecommendationNotifier, BacklogRecommendation?>(
+  (ref) {
+    final settingsRepo = ref.watch(settingsRepositoryProvider);
+    final initialGames = ref.read(libraryNotifierProvider).allGames;
+    final primaryCurrency = ref.watch(
+      settingsNotifierProvider.select((s) => s.primaryCurrency),
+    );
+    final exchangeRates = ref.watch(exchangeRatesNotifierProvider);
+
+    final notifier = BacklogRecommendationNotifier(
+      settingsRepo: settingsRepo,
+      initialGames: initialGames,
+      primaryCurrency: primaryCurrency,
+      exchangeRates: exchangeRates,
+    );
+
+    ref.listen<LibraryState>(libraryNotifierProvider, (prev, next) {
+      notifier.onLibraryChanged(next.allGames);
+    });
+
+    return notifier;
+  },
+);
+
+class BacklogRecommendationNotifier extends StateNotifier<BacklogRecommendation?> {
+  final SettingsRepository _settingsRepo;
+  final String _primaryCurrency;
+  final ExchangeRates? _exchangeRates;
+
+  BacklogRecommendationNotifier({
+    required SettingsRepository settingsRepo,
+    required List<GameEntry> initialGames,
+    required String primaryCurrency,
+    required ExchangeRates? exchangeRates,
+  })  : _settingsRepo = settingsRepo,
+        _primaryCurrency = primaryCurrency,
+        _exchangeRates = exchangeRates,
+        super(
+          _resolveOrCompute(
+            settingsRepo: settingsRepo,
+            games: initialGames,
+            primaryCurrency: primaryCurrency,
+            exchangeRates: exchangeRates,
+          ),
+        );
+
+  static BacklogRecommendation? _tryHydrateFromStorage(
+    SettingsRepository settingsRepo,
+    List<GameEntry> games,
+  ) {
+    final rawJson = settingsRepo.backlogRecommendationJson;
+    if (rawJson == null || rawJson.isEmpty) return null;
+
+    try {
+      final map = jsonDecode(rawJson) as Map<String, dynamic>;
+      final gameId = map['gameId'] as String?;
+      if (gameId == null) return null;
+
+      GameEntry? matchedGame;
+      for (final g in games) {
+        if (g.id == gameId) {
+          matchedGame = g;
+          break;
+        }
+      }
+
+      // Keep the pinned recommendation only while its status remains backlog.
+      // Any transition to playing/completed/mastered/abandoned (or wishlist/deleted) triggers a fresh ML run.
+      if (matchedGame == null || matchedGame.status != GameStatus.backlog) {
+        return null;
+      }
+
+      final matchScore = (map['matchScore'] as num?)?.toDouble() ?? 0.75;
+      final predictedRating = (map['predictedRating'] as num?)?.toDouble() ?? 7.5;
+      final primaryReason =
+          map['primaryReason'] as String? ?? 'Recommended from your backlog';
+      final factors = (map['matchingFactors'] as List<dynamic>?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          const <String>[];
+
+      return BacklogRecommendation(
+        game: matchedGame,
+        matchScore: matchScore,
+        predictedRating: predictedRating,
+        primaryReason: primaryReason,
+        matchingFactors: factors,
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
+  static BacklogRecommendation? _resolveOrCompute({
+    required SettingsRepository settingsRepo,
+    required List<GameEntry> games,
+    required String primaryCurrency,
+    required ExchangeRates? exchangeRates,
+  }) {
+    final cached = _tryHydrateFromStorage(settingsRepo, games);
+    if (cached != null) return cached;
+
+    final fresh = BacklogMlRecommender.recommend(
+      games: games,
+      primaryCurrency: primaryCurrency,
+      exchangeRates: exchangeRates,
+    );
+
+    if (fresh != null) {
+      settingsRepo.setBacklogRecommendationJson(jsonEncode(fresh.toJson()));
+    } else if (settingsRepo.backlogRecommendationJson != null) {
+      settingsRepo.clearBacklogRecommendation();
+    }
+
+    return fresh;
+  }
+
+  void onLibraryChanged(List<GameEntry> games) {
+    final current = state;
+    if (current != null) {
+      GameEntry? updatedCurrent;
+      for (final g in games) {
+        if (g.id == current.game.id) {
+          updatedCurrent = g;
+          break;
+        }
+      }
+
+      // Only re-run the recommender when the recommended game's status leaves Backlog
+      // (playing / completed / mastered / abandoned) or it is removed.
+      if (updatedCurrent != null && updatedCurrent.status == GameStatus.backlog) {
+        if (updatedCurrent != current.game) {
+          state = current.copyWith(game: updatedCurrent);
+        }
+        return;
+      }
+    } else {
+      final hasBacklog = games.any((g) => g.status == GameStatus.backlog);
+      if (!hasBacklog) return;
+    }
+
+    final next = BacklogMlRecommender.recommend(
+      games: games,
+      primaryCurrency: _primaryCurrency,
+      exchangeRates: _exchangeRates,
+    );
+
+    state = next;
+    if (next != null) {
+      _settingsRepo.setBacklogRecommendationJson(jsonEncode(next.toJson()));
+    } else {
+      _settingsRepo.clearBacklogRecommendation();
+    }
+  }
+}
 
 class AnalyticsEngine {
   static double computeMedian(List<double> values) {
@@ -85,17 +247,22 @@ class AnalyticsEngine {
     }
 
     final playedGames = games.where((g) => g.totalMinutesPlayed > 0).toList();
-    final averageCostPerHour = playedMinutes > 0 ? (playedSpend / (playedMinutes / 60.0)) : 0.0;
+    final averageCostPerHour =
+        playedMinutes > 0 ? (playedSpend / (playedMinutes / 60.0)) : 0.0;
 
-    final playedHoursList = playedGames.map((g) => g.totalMinutesPlayed / 60.0).toList();
-    final averagePlaytimeHours = playedGames.isNotEmpty ? (totalMinutesPlayed / 60.0) / playedGames.length : 0.0;
+    final playedHoursList =
+        playedGames.map((g) => g.totalMinutesPlayed / 60.0).toList();
+    final averagePlaytimeHours =
+        playedGames.isNotEmpty ? (totalMinutesPlayed / 60.0) / playedGames.length : 0.0;
     final medianPlaytimeHours = computeMedian(playedHoursList);
 
     // Top 3 games playtime share
     final sortedByPlaytime = List<GameEntry>.from(playedGames)
       ..sort((a, b) => b.totalMinutesPlayed.compareTo(a.totalMinutesPlayed));
-    final top3Minutes = sortedByPlaytime.take(3).fold<int>(0, (sum, g) => sum + g.totalMinutesPlayed);
-    final top3GamesSharePercent = totalMinutesPlayed > 0 ? (top3Minutes / totalMinutesPlayed) * 100.0 : 0.0;
+    final top3Minutes =
+        sortedByPlaytime.take(3).fold<int>(0, (sum, g) => sum + g.totalMinutesPlayed);
+    final top3GamesSharePercent =
+        totalMinutesPlayed > 0 ? (top3Minutes / totalMinutesPlayed) * 100.0 : 0.0;
 
     // 2. Playtime Commitment Buckets (5 tiers)
     final bucketMap = <PlaytimeBucket, List<GameEntry>>{
@@ -121,7 +288,8 @@ class AnalyticsEngine {
       final bucketGames = bucketMap[bucket]!;
       final count = bucketGames.length;
       final minutes = bucketGames.fold<int>(0, (sum, g) => sum + g.totalMinutesPlayed);
-      final percentage = playedGames.isNotEmpty ? (count / playedGames.length) * 100.0 : 0.0;
+      final percentage =
+          playedGames.isNotEmpty ? (count / playedGames.length) * 100.0 : 0.0;
 
       return PlaytimeBucketData(
         bucket: bucket,
@@ -157,7 +325,8 @@ class AnalyticsEngine {
       final minutes = entry.value;
       final count = genreGamesCountMap[genre] ?? 0;
       final ratings = genreRatingsMap[genre] ?? [];
-      final avgRating = ratings.isNotEmpty ? (ratings.reduce((a, b) => a + b) / ratings.length) : null;
+      final avgRating =
+          ratings.isNotEmpty ? (ratings.reduce((a, b) => a + b) / ratings.length) : null;
 
       return GenreAnalyticsData(
         genre: genre,
@@ -173,47 +342,66 @@ class AnalyticsEngine {
         return b.gamesCount.compareTo(a.gamesCount);
       });
 
-    // 4. Rating & Joy (The Golden Quadrant & Joy-Per-Dollar)
-    final ratedPlayedGames = games.where((g) => g.totalMinutesPlayed > 0 && g.personalRating > 0).toList();
-    final allRatings = games.where((g) => g.personalRating > 0).map((g) => g.personalRating).toList();
-    final averagePersonalRating = allRatings.isNotEmpty ? (allRatings.reduce((a, b) => a + b) / allRatings.length) : 0.0;
+    // 4. Rating & Joy (Summary, Distribution, Top Rated & Joy-Per-Dollar)
+    final ratedGames = games.where((g) => g.personalRating > 0).toList()
+      ..sort((a, b) {
+        final cmp = b.personalRating.compareTo(a.personalRating);
+        if (cmp != 0) return cmp;
+        return b.totalMinutesPlayed.compareTo(a.totalMinutesPlayed);
+      });
+    final allRatings = ratedGames.map((g) => g.personalRating).toList();
+    final averagePersonalRating = allRatings.isNotEmpty
+        ? (allRatings.reduce((a, b) => a + b) / allRatings.length)
+        : 0.0;
     final medianRating = computeMedian(allRatings);
 
-    // Median-Adaptive Thresholds
-    final hoursThreshold = (medianPlaytimeHours > 0 ? medianPlaytimeHours : 15.0).clamp(8.0, 50.0);
-    final ratingThreshold = (medianRating > 0 ? medianRating : 7.5).clamp(7.0, 8.5);
-
-    final quadrantMap = <QuadrantCategory, List<QuadrantGameEntry>>{
-      for (final cat in QuadrantCategory.values) cat: [],
-    };
-
-    for (final game in ratedPlayedGames) {
-      final hours = game.totalMinutesPlayed / 60.0;
-      final rating = game.personalRating;
-
-      final QuadrantCategory category;
-      if (hours >= hoursThreshold && rating >= ratingThreshold) {
-        category = QuadrantCategory.timelessMasterpiece;
-      } else if (hours < hoursThreshold && rating >= ratingThreshold) {
-        category = QuadrantCategory.sweetShortGem;
-      } else if (hours >= hoursThreshold && rating < ratingThreshold) {
-        category = QuadrantCategory.timeTrap;
+    int masterpiecesCount = 0;
+    int greatCount = 0;
+    int decentCount = 0;
+    int modestCount = 0;
+    for (final r in allRatings) {
+      if (r >= 9.0) {
+        masterpiecesCount++;
+      } else if (r >= 7.5) {
+        greatCount++;
+      } else if (r >= 6.0) {
+        decentCount++;
       } else {
-        category = QuadrantCategory.earlyDrop;
+        modestCount++;
       }
-
-      quadrantMap[category]!.add(
-        QuadrantGameEntry(
-          game: game,
-          category: category,
-          hours: hours,
-          rating: rating,
-        ),
-      );
     }
+    final totalRated = allRatings.length;
+    final ratingDistribution = <RatingBucketData>[
+      RatingBucketData(
+        label: 'Masterpieces',
+        rangeLabel: '9.0 – 10.0 ★',
+        count: masterpiecesCount,
+        percentage: totalRated > 0 ? (masterpiecesCount / totalRated) * 100.0 : 0.0,
+      ),
+      RatingBucketData(
+        label: 'Great',
+        rangeLabel: '7.5 – 8.9 ★',
+        count: greatCount,
+        percentage: totalRated > 0 ? (greatCount / totalRated) * 100.0 : 0.0,
+      ),
+      RatingBucketData(
+        label: 'Decent',
+        rangeLabel: '6.0 – 7.4 ★',
+        count: decentCount,
+        percentage: totalRated > 0 ? (decentCount / totalRated) * 100.0 : 0.0,
+      ),
+      RatingBucketData(
+        label: 'Modest',
+        rangeLabel: '< 6.0 ★',
+        count: modestCount,
+        percentage: totalRated > 0 ? (modestCount / totalRated) * 100.0 : 0.0,
+      ),
+    ];
 
     // Joy-Per-Dollar (for paid games with active playtime and rating)
-    final paidRatedGames = games.where((g) => g.totalSpent > 0 && g.personalRating > 0 && g.totalMinutesPlayed > 0).toList();
+    final paidRatedGames = games
+        .where((g) => g.totalSpent > 0 && g.personalRating > 0 && g.totalMinutesPlayed > 0)
+        .toList();
     final topJoyPerDollar = paidRatedGames.map((g) {
       final cost = convertGameSpend(g);
       final joyScore = cost > 0 ? (g.personalRating / cost) : 0.0;
@@ -234,36 +422,27 @@ class AnalyticsEngine {
       statusCounts[game.status] = (statusCounts[game.status] ?? 0) + 1;
     }
 
-    final completedCount = (statusCounts[GameStatus.completed] ?? 0) + (statusCounts[GameStatus.mastered] ?? 0);
+    final completedCount =
+        (statusCounts[GameStatus.completed] ?? 0) + (statusCounts[GameStatus.mastered] ?? 0);
     final completionRate = games.isNotEmpty ? (completedCount / games.length) * 100.0 : 0.0;
 
     final abandonedGames = games.where((g) => g.status == GameStatus.abandoned).toList();
-    final abandonedMinutes = abandonedGames.fold<int>(0, (sum, g) => sum + g.totalMinutesPlayed);
-    final abandonedSpend = abandonedGames.fold<double>(0.0, (sum, g) => sum + convertGameSpend(g));
-    final abandonedHoursTaxPercent = totalMinutesPlayed > 0 ? (abandonedMinutes / totalMinutesPlayed) * 100.0 : 0.0;
+    final abandonedMinutes =
+        abandonedGames.fold<int>(0, (sum, g) => sum + g.totalMinutesPlayed);
+    final abandonedSpend =
+        abandonedGames.fold<double>(0.0, (sum, g) => sum + convertGameSpend(g));
+    final abandonedHoursTaxPercent =
+        totalMinutesPlayed > 0 ? (abandonedMinutes / totalMinutesPlayed) * 100.0 : 0.0;
 
     double backlogCapital = 0.0;
-    final backlogGames = <GameEntry>[];
     for (final game in games) {
       final spend = convertGameSpend(game);
-      if (game.status == GameStatus.backlog || (game.totalMinutesPlayed == 0 && game.totalSpent > 0)) {
+      if (game.status == GameStatus.backlog ||
+          (game.totalMinutesPlayed == 0 &&
+              game.totalSpent > 0 &&
+              game.status != GameStatus.wishlist)) {
         backlogCapital += spend;
-        if (game.totalMinutesPlayed == 0) {
-          backlogGames.add(game);
-        }
       }
-    }
-
-    // Next quick win: unplayed game, prioritizing highest personal interest or added date
-    GameEntry? nextQuickWin;
-    if (backlogGames.isNotEmpty) {
-      backlogGames.sort((a, b) {
-        if (a.personalRating != b.personalRating) {
-          return b.personalRating.compareTo(a.personalRating);
-        }
-        return b.addedAt.compareTo(a.addedAt);
-      });
-      nextQuickWin = backlogGames.first;
     }
 
     // 6. Storefront Breakdown & Top Storefront
@@ -295,31 +474,43 @@ class AnalyticsEngine {
       );
     }
 
-    final backlogCapitalPercent = totalInvested > 0 ? (backlogCapital / totalInvested) * 100.0 : 0.0;
+    final backlogCapitalPercent =
+        totalInvested > 0 ? (backlogCapital / totalInvested) * 100.0 : 0.0;
     final playedGamesCount = playedGames.length;
     final unplayedGamesCount = games.length - playedGamesCount;
 
     // 7. Superlatives & Accolades
     // The Infinite Value: lowest cost/hr with totalSpent > 0 and playtime > 0
-    final validRoiGames = games.where((g) => g.totalMinutesPlayed > 0 && g.totalSpent > 0 && g.costPerHour != null).toList()
+    final validRoiGames = games
+        .where((g) => g.totalMinutesPlayed > 0 && g.totalSpent > 0 && g.costPerHour != null)
+        .toList()
       ..sort((a, b) => normalizedCostPerHour(a).compareTo(normalizedCostPerHour(b)));
     final infiniteValueGame = validRoiGames.isNotEmpty ? validRoiGames.first : null;
-    final infiniteValueCostPerHour = infiniteValueGame != null ? normalizedCostPerHour(infiniteValueGame) : null;
+    final infiniteValueCostPerHour =
+        infiniteValueGame != null ? normalizedCostPerHour(infiniteValueGame) : null;
 
     // The Black Hole: most played
     final blackHoleGame = sortedByPlaytime.isNotEmpty ? sortedByPlaytime.first : null;
 
     // The Money Pit: highest cost/hr with playtime > 0
     final moneyPitGame = validRoiGames.isNotEmpty ? validRoiGames.last : null;
-    final moneyPitCostPerHour = moneyPitGame != null ? normalizedCostPerHour(moneyPitGame) : null;
+    final moneyPitCostPerHour =
+        moneyPitGame != null ? normalizedCostPerHour(moneyPitGame) : null;
 
     // The Golden Freebie: totalSpent == 0 with most playtime
-    final freeGamesWithPlaytime = games.where((g) => g.totalSpent <= 0 && g.totalMinutesPlayed > 0).toList()
+    final freeGamesWithPlaytime = games
+        .where((g) => g.totalSpent <= 0 && g.totalMinutesPlayed > 0)
+        .toList()
       ..sort((a, b) => b.totalMinutesPlayed.compareTo(a.totalMinutesPlayed));
-    final goldenFreebieGame = freeGamesWithPlaytime.isNotEmpty ? freeGamesWithPlaytime.first : null;
+    final goldenFreebieGame =
+        freeGamesWithPlaytime.isNotEmpty ? freeGamesWithPlaytime.first : null;
 
     // The Masterpiece: highest rating among completed or mastered
-    final completedGames = games.where((g) => (g.status == GameStatus.completed || g.status == GameStatus.mastered) && g.personalRating > 0).toList()
+    final completedGames = games
+        .where((g) =>
+            (g.status == GameStatus.completed || g.status == GameStatus.mastered) &&
+            g.personalRating > 0)
+        .toList()
       ..sort((a, b) {
         final cmp = b.personalRating.compareTo(a.personalRating);
         if (cmp != 0) return cmp;
@@ -338,7 +529,8 @@ class AnalyticsEngine {
     final dlcCollectorSpend = dlcCollectorGame != null
         ? convertSpend(
             dlcCollectorGame,
-            dlcCollectorGame.additionalExpenses.fold<double>(0.0, (sum, e) => sum + e.amount),
+            dlcCollectorGame.additionalExpenses
+                .fold<double>(0.0, (sum, e) => sum + e.amount),
           )
         : null;
 
@@ -359,12 +551,11 @@ class AnalyticsEngine {
       playtimeBuckets: playtimeBuckets,
       topGenres: topGenres,
       medianRating: medianRating,
-      ratingThreshold: ratingThreshold,
-      hoursThreshold: hoursThreshold,
-      quadrantGames: quadrantMap,
       topJoyPerDollar: topJoyPerDollar.take(5).toList(),
       averagePersonalRating: averagePersonalRating,
       totalRatedGames: allRatings.length,
+      ratingDistribution: ratingDistribution,
+      topRatedGames: ratedGames.take(5).toList(),
       statusCounts: statusCounts,
       completionRate: completionRate,
       abandonedCount: abandonedGames.length,
@@ -372,7 +563,6 @@ class AnalyticsEngine {
       abandonedSpend: abandonedSpend,
       abandonedHoursTaxPercent: abandonedHoursTaxPercent,
       backlogCapital: backlogCapital,
-      nextQuickWin: nextQuickWin,
       infiniteValueGame: infiniteValueGame,
       infiniteValueCostPerHour: infiniteValueCostPerHour,
       blackHoleGame: blackHoleGame,

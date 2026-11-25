@@ -13,31 +13,6 @@ enum AnalyticsTab {
   const AnalyticsTab(this.label);
 }
 
-enum QuadrantCategory {
-  timelessMasterpiece('Timeless Masterpieces', 'High Time • High Rating'),
-  sweetShortGem('Sweet & Short Gems', 'Low Time • High Rating'),
-  timeTrap('Time Traps / Grinds', 'High Time • Modest Rating'),
-  earlyDrop('Early Drops / Misses', 'Low Time • Modest Rating');
-
-  final String title;
-  final String subtitle;
-  const QuadrantCategory(this.title, this.subtitle);
-}
-
-class QuadrantGameEntry {
-  final GameEntry game;
-  final QuadrantCategory category;
-  final double hours;
-  final double rating;
-
-  const QuadrantGameEntry({
-    required this.game,
-    required this.category,
-    required this.hours,
-    required this.rating,
-  });
-}
-
 enum PlaytimeBucket {
   biteSized('Bite-Sized', '< 5 hrs', 0, 5),
   shortCampaign('Short Campaign', '5–20 hrs', 5, 20),
@@ -118,6 +93,20 @@ class JoyPerDollarEntry {
   });
 }
 
+class RatingBucketData {
+  final String label;
+  final String rangeLabel;
+  final int count;
+  final double percentage;
+
+  const RatingBucketData({
+    required this.label,
+    required this.rangeLabel,
+    required this.count,
+    required this.percentage,
+  });
+}
+
 class AnalyticsState {
   final AnalyticsTab currentTab;
   final String primaryCurrency;
@@ -141,12 +130,11 @@ class AnalyticsState {
 
   // 2. Rating & Joy
   final double medianRating;
-  final double ratingThreshold;
-  final double hoursThreshold;
-  final Map<QuadrantCategory, List<QuadrantGameEntry>> quadrantGames;
   final List<JoyPerDollarEntry> topJoyPerDollar;
   final double averagePersonalRating;
   final int totalRatedGames;
+  final List<RatingBucketData> ratingDistribution;
+  final List<GameEntry> topRatedGames;
 
   // 3. Backlog & Pipeline
   final Map<GameStatus, int> statusCounts;
@@ -156,7 +144,6 @@ class AnalyticsState {
   final double abandonedSpend;
   final double abandonedHoursTaxPercent;
   final double backlogCapital;
-  final GameEntry? nextQuickWin;
 
   // 4. Superlatives
   final GameEntry? infiniteValueGame;
@@ -186,12 +173,11 @@ class AnalyticsState {
     this.playtimeBuckets = const [],
     this.topGenres = const [],
     this.medianRating = 0.0,
-    this.ratingThreshold = 7.5,
-    this.hoursThreshold = 15.0,
-    this.quadrantGames = const {},
     this.topJoyPerDollar = const [],
     this.averagePersonalRating = 0.0,
     this.totalRatedGames = 0,
+    this.ratingDistribution = const [],
+    this.topRatedGames = const [],
     this.statusCounts = const {},
     this.completionRate = 0.0,
     this.abandonedCount = 0,
@@ -199,7 +185,6 @@ class AnalyticsState {
     this.abandonedSpend = 0.0,
     this.abandonedHoursTaxPercent = 0.0,
     this.backlogCapital = 0.0,
-    this.nextQuickWin,
     this.infiniteValueGame,
     this.infiniteValueCostPerHour,
     this.blackHoleGame,
@@ -232,12 +217,11 @@ class AnalyticsState {
     List<PlaytimeBucketData>? playtimeBuckets,
     List<GenreAnalyticsData>? topGenres,
     double? medianRating,
-    double? ratingThreshold,
-    double? hoursThreshold,
-    Map<QuadrantCategory, List<QuadrantGameEntry>>? quadrantGames,
     List<JoyPerDollarEntry>? topJoyPerDollar,
     double? averagePersonalRating,
     int? totalRatedGames,
+    List<RatingBucketData>? ratingDistribution,
+    List<GameEntry>? topRatedGames,
     Map<GameStatus, int>? statusCounts,
     double? completionRate,
     int? abandonedCount,
@@ -245,7 +229,6 @@ class AnalyticsState {
     double? abandonedSpend,
     double? abandonedHoursTaxPercent,
     double? backlogCapital,
-    GameEntry? nextQuickWin,
     GameEntry? infiniteValueGame,
     double? infiniteValueCostPerHour,
     GameEntry? blackHoleGame,
@@ -273,12 +256,11 @@ class AnalyticsState {
       playtimeBuckets: playtimeBuckets ?? this.playtimeBuckets,
       topGenres: topGenres ?? this.topGenres,
       medianRating: medianRating ?? this.medianRating,
-      ratingThreshold: ratingThreshold ?? this.ratingThreshold,
-      hoursThreshold: hoursThreshold ?? this.hoursThreshold,
-      quadrantGames: quadrantGames ?? this.quadrantGames,
       topJoyPerDollar: topJoyPerDollar ?? this.topJoyPerDollar,
       averagePersonalRating: averagePersonalRating ?? this.averagePersonalRating,
       totalRatedGames: totalRatedGames ?? this.totalRatedGames,
+      ratingDistribution: ratingDistribution ?? this.ratingDistribution,
+      topRatedGames: topRatedGames ?? this.topRatedGames,
       statusCounts: statusCounts ?? this.statusCounts,
       completionRate: completionRate ?? this.completionRate,
       abandonedCount: abandonedCount ?? this.abandonedCount,
@@ -286,7 +268,6 @@ class AnalyticsState {
       abandonedSpend: abandonedSpend ?? this.abandonedSpend,
       abandonedHoursTaxPercent: abandonedHoursTaxPercent ?? this.abandonedHoursTaxPercent,
       backlogCapital: backlogCapital ?? this.backlogCapital,
-      nextQuickWin: nextQuickWin ?? this.nextQuickWin,
       infiniteValueGame: infiniteValueGame ?? this.infiniteValueGame,
       infiniteValueCostPerHour: infiniteValueCostPerHour ?? this.infiniteValueCostPerHour,
       blackHoleGame: blackHoleGame ?? this.blackHoleGame,

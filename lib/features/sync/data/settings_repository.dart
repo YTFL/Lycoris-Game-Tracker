@@ -19,6 +19,9 @@ class SettingsRepository {
   static const String keyLastOfflineBackupStatus = 'last_offline_backup_status';
   static const String keyUpdateDeferredUntil = 'update_deferred_until';
   static const String keyLastUpdateCheckAt = 'last_update_check_at';
+  static const String keyHomeTabsConfig = 'home_tabs_config';
+  static const String keyCustomCategories = 'custom_categories';
+  static const String keyBacklogRecommendation = 'backlog_recommendation';
 
   SettingsRepository(this._box);
 
@@ -129,4 +132,17 @@ class SettingsRepository {
 
   Future<void> setLastUpdateCheckAt(DateTime date) =>
       _box.put(keyLastUpdateCheckAt, date.millisecondsSinceEpoch);
+
+  String? get homeTabsJson => _box.get(keyHomeTabsConfig) as String?;
+  Future<void> setHomeTabsJson(String jsonStr) => _box.put(keyHomeTabsConfig, jsonStr);
+  Future<void> clearHomeTabsConfig() => _box.delete(keyHomeTabsConfig);
+
+  String? get customCategoriesJson => _box.get(keyCustomCategories) as String?;
+  Future<void> setCustomCategoriesJson(String jsonStr) => _box.put(keyCustomCategories, jsonStr);
+  Future<void> clearCustomCategories() => _box.delete(keyCustomCategories);
+
+  String? get backlogRecommendationJson => _box.get(keyBacklogRecommendation) as String?;
+  Future<void> setBacklogRecommendationJson(String jsonStr) =>
+      _box.put(keyBacklogRecommendation, jsonStr);
+  Future<void> clearBacklogRecommendation() => _box.delete(keyBacklogRecommendation);
 }

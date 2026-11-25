@@ -32,6 +32,9 @@ class GameEntry {
   final bool isCustomEntry;
   final String? customCoverPath;
 
+  // Custom User Categories
+  final List<String> customCategories;
+
   GameEntry({
     required this.id,
     required this.igdbId,
@@ -51,7 +54,9 @@ class GameEntry {
     required this.updatedAt,
     this.isCustomEntry = false,
     this.customCoverPath,
-  }) : additionalExpenses = additionalExpenses ?? [];
+    List<String>? customCategories,
+  })  : additionalExpenses = additionalExpenses ?? [],
+        customCategories = customCategories ?? [];
 
   /// Total capital invested (Base price + all itemized DLC / expenses)
   double get totalSpent {
@@ -100,6 +105,7 @@ class GameEntry {
     DateTime? updatedAt,
     bool? isCustomEntry,
     String? customCoverPath,
+    List<String>? customCategories,
   }) {
     return GameEntry(
       id: id ?? this.id,
@@ -120,6 +126,7 @@ class GameEntry {
       updatedAt: updatedAt ?? this.updatedAt,
       isCustomEntry: isCustomEntry ?? this.isCustomEntry,
       customCoverPath: customCoverPath ?? this.customCoverPath,
+      customCategories: customCategories ?? List.from(this.customCategories),
     );
   }
 
@@ -142,6 +149,7 @@ class GameEntry {
     'updatedAt': updatedAt.toIso8601String(),
     'isCustomEntry': isCustomEntry,
     'customCoverPath': customCoverPath,
+    'customCategories': customCategories,
   };
 
   factory GameEntry.fromJson(Map<String, dynamic> json) => GameEntry(
@@ -167,5 +175,6 @@ class GameEntry {
         : DateTime.parse(json['addedAt'] as String),
     isCustomEntry: json['isCustomEntry'] as bool? ?? false,
     customCoverPath: json['customCoverPath'] as String?,
+    customCategories: (json['customCategories'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [],
   );
 }

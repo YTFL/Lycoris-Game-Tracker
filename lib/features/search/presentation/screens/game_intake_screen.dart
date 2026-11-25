@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/utils/currency_helper.dart';
 import '../../../../core/utils/text_field_helper.dart';
 import '../../../../core/utils/time_normalizer.dart';
+import '../../../home/presentation/controllers/home_tabs_notifier.dart';
 import '../../../sync/presentation/controllers/settings_notifier.dart';
 import '../../../tracker/domain/models/game_entry.dart';
 import '../../../tracker/domain/models/game_status.dart';
@@ -36,6 +37,7 @@ class GameIntakeScreen extends ConsumerStatefulWidget {
 class _GameIntakeScreenState extends ConsumerState<GameIntakeScreen> {
   Storefront? _selectedStorefront;
   GameStatus? _selectedStatus;
+  final List<String> _selectedCategories = [];
   String _selectedCurrency = '';
   final _priceController = TextEditingController();
   bool _isFree = false;
@@ -113,6 +115,7 @@ class _GameIntakeScreenState extends ConsumerState<GameIntakeScreen> {
       currency: _selectedCurrency,
       personalRating: _rating,
       notes: _notesController.text.trim(),
+      customCategories: _selectedCategories,
       addedAt: DateTime.now(),
       updatedAt: DateTime.now(),
     );
@@ -298,6 +301,57 @@ class _GameIntakeScreenState extends ConsumerState<GameIntakeScreen> {
                 },
               ),
               const SizedBox(height: 20),
+
+              // Categories Selector
+              Builder(
+                builder: (context) {
+                  final tabsState = ref.watch(homeTabsNotifierProvider);
+                  final allCategories = tabsState.customCategories;
+                  if (allCategories.isEmpty) return const SizedBox.shrink();
+
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Categories (Optional)',
+                        style: theme.textTheme.labelMedium?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: allCategories.map((cat) {
+                          final isSelected = _selectedCategories.contains(cat.id);
+                          return FilterChip(
+                            label: Text(cat.name),
+                            selected: isSelected,
+                            visualDensity: VisualDensity.compact,
+                            selectedColor: colorScheme.primaryContainer,
+                            checkmarkColor: colorScheme.onPrimaryContainer,
+                            labelStyle: TextStyle(
+                              fontWeight: isSelected ? FontWeight.w700 : FontWeight.normal,
+                              color: isSelected ? colorScheme.onPrimaryContainer : colorScheme.onSurface,
+                            ),
+                            onSelected: (checked) {
+                              setState(() {
+                                if (checked) {
+                                  _selectedCategories.add(cat.id);
+                                } else {
+                                  _selectedCategories.remove(cat.id);
+                                }
+                              });
+                            },
+                          );
+                        }).toList(),
+                      ),
+                      const SizedBox(height: 20),
+                    ],
+                  );
+                },
+              ),
 
               // 4. Acquisition & Base Price
               Text(

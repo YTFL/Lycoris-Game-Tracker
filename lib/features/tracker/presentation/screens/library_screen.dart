@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../home/domain/models/home_tab_config.dart';
+import '../../../home/presentation/controllers/home_tabs_notifier.dart';
 import '../../domain/models/game_entry.dart';
-import '../../domain/models/game_status.dart';
 import '../../domain/models/storefront.dart';
 import '../controllers/library_notifier.dart';
 import '../controllers/library_state.dart';
@@ -19,29 +20,30 @@ class LibraryScreen extends ConsumerStatefulWidget {
 // Backward compatibility alias during transition
 typedef VaultScreen = LibraryScreen;
 
-class _LibraryScreenState extends ConsumerState<LibraryScreen> with SingleTickerProviderStateMixin {
+class _LibraryScreenState extends ConsumerState<LibraryScreen> with TickerProviderStateMixin {
   final _searchController = SearchController();
-  late final TabController _tabController;
-
-  static const List<GameStatus?> _tabStatuses = [
-    null, // All
-    GameStatus.playing,
-    GameStatus.backlog,
-    GameStatus.completed,
-    GameStatus.mastered,
-    GameStatus.abandoned,
-    GameStatus.wishlist,
-  ];
+  TabController? _tabController;
+  int _activeTabsCount = 0;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: _tabStatuses.length, vsync: this);
+  }
+
+  void _updateTabController(int newCount) {
+    if (_tabController != null && _activeTabsCount == newCount) {
+      return;
+    }
+    final previousIndex = _tabController?.index ?? 0;
+    _tabController?.dispose();
+    _activeTabsCount = newCount;
+    final initialIndex = (previousIndex < newCount) ? previousIndex : (newCount - 1).clamp(0, newCount);
+    _tabController = TabController(length: newCount, vsync: this, initialIndex: initialIndex);
   }
 
   @override
   void dispose() {
-    _tabController.dispose();
+    _tabController?.dispose();
     _searchController.dispose();
     super.dispose();
   }
@@ -153,6 +155,12 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> with SingleTicker
     final colorScheme = theme.colorScheme;
     final libraryState = ref.watch(libraryNotifierProvider);
     final notifier = ref.read(libraryNotifierProvider.notifier);
+    final tabsState = ref.watch(homeTabsNotifierProvider);
+    final visibleTabs = tabsState.visibleTabs;
+
+    // Keep TabController in sync with visible tabs count
+    final activeCount = visibleTabs.isNotEmpty ? visibleTabs.length : 1;
+    _updateTabController(activeCount);
 
     return Scaffold(
       appBar: AppBar(
@@ -259,7 +267,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> with SingleTicker
                 ),
               ),
 
-              // TabBar for Statuses (Synced with TabBarView for swiping)
+              // TabBar for Statuses & Custom Categories (Synced with TabBarView for swiping)
               TabBar(
                 controller: _tabController,
                 isScrollable: true,
@@ -271,34 +279,46 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> with SingleTicker
                 unselectedLabelColor: colorScheme.onSurfaceVariant,
                 labelStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
                 unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.normal, fontSize: 13),
-                tabs: _tabStatuses.map((st) {
-                  if (st == null) {
-                    return Tab(text: 'All (${libraryState.allGames.length})');
+                tabs: visibleTabs.map((tab) {
+                  int count = 0;
+                  if (tab.type == HomeTabType.status) {
+                    if (tab.status == null) {
+                      count = libraryState.allGames.length;
+                    } else {
+                      count = libraryState.allGames.where((g) => g.status == tab.status).length;
+                    }
+                  } else if (tab.customCategoryId != null) {
+                    count = libraryState.allGames
+                        .where((g) => g.customCategories.contains(tab.customCategoryId))
+                        .length;
                   }
-                  final count = libraryState.allGames.where((g) => g.status == st).length;
-                  return Tab(text: '${st.displayName} ($count)');
+                  return Tab(text: '${tab.label} ($count)');
                 }).toList(),
               ),
             ],
           ),
         ),
       ),
-      // Swipeable TabBarView across all tabs
+      // Swipeable TabBarView across all visible tabs
       body: TabBarView(
         controller: _tabController,
-        children: _tabStatuses.map((st) {
-          return _buildGameListForStatus(context, st, libraryState);
+        children: visibleTabs.map((tab) {
+          return _buildGameListForTab(context, tab, libraryState);
         }).toList(),
       ),
     );
   }
 
-  Widget _buildGameListForStatus(BuildContext context, GameStatus? status, LibraryState libraryState) {
-    // Filter games by tab status, search query, and storefront filter
+  Widget _buildGameListForTab(BuildContext context, HomeTabConfig tab, LibraryState libraryState) {
+    // Filter games by tab type, search query, and storefront filter
     var games = List<GameEntry>.from(libraryState.allGames);
 
-    if (status != null) {
-      games = games.where((g) => g.status == status).toList();
+    if (tab.type == HomeTabType.status) {
+      if (tab.status != null) {
+        games = games.where((g) => g.status == tab.status).toList();
+      }
+    } else if (tab.type == HomeTabType.custom && tab.customCategoryId != null) {
+      games = games.where((g) => g.customCategories.contains(tab.customCategoryId)).toList();
     }
 
     if (libraryState.storefrontFilter != null) {
