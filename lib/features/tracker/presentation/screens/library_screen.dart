@@ -202,12 +202,26 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> with TickerProvid
                       color: isSelected ? colorScheme.primary : colorScheme.onSurfaceVariant,
                     ),
                     const SizedBox(width: 10),
-                    Text(
-                      opt.label,
-                      style: TextStyle(
-                        color: isSelected ? colorScheme.primary : colorScheme.onSurface,
-                        fontWeight: isSelected ? FontWeight.w700 : FontWeight.normal,
+                    Expanded(
+                      child: Text(
+                        opt.label,
+                        style: TextStyle(
+                          color: isSelected ? colorScheme.primary : colorScheme.onSurface,
+                          fontWeight: isSelected ? FontWeight.w700 : FontWeight.normal,
+                        ),
                       ),
+                    ),
+                    const SizedBox(width: 8),
+                    Icon(
+                      isSelected
+                          ? (libraryState.sortAscending
+                              ? Icons.arrow_upward_rounded
+                              : Icons.arrow_downward_rounded)
+                          : Icons.swap_vert_rounded,
+                      size: 16,
+                      color: isSelected
+                          ? colorScheme.primary
+                          : colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
                     ),
                   ],
                 ),
@@ -335,28 +349,32 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> with TickerProvid
     }
 
     // Apply sorting
+    final dir = libraryState.sortAscending ? 1 : -1;
     switch (libraryState.sortOption) {
       case LibrarySortOption.lastUpdated:
-        games.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+        games.sort((a, b) => dir * a.updatedAt.compareTo(b.updatedAt));
         break;
       case LibrarySortOption.playtimeDesc:
-        games.sort((a, b) => b.totalMinutesPlayed.compareTo(a.totalMinutesPlayed));
+        games.sort((a, b) => dir * a.totalMinutesPlayed.compareTo(b.totalMinutesPlayed));
         break;
       case LibrarySortOption.costPerHourAsc:
         games.sort((a, b) {
-          final costA = a.costPerHour ?? double.infinity;
-          final costB = b.costPerHour ?? double.infinity;
-          return costA.compareTo(costB);
+          final costA = a.costPerHour;
+          final costB = b.costPerHour;
+          if (costA == null && costB == null) return 0;
+          if (costA == null) return 1;
+          if (costB == null) return -1;
+          return dir * costA.compareTo(costB);
         });
         break;
       case LibrarySortOption.ratingDesc:
-        games.sort((a, b) => b.personalRating.compareTo(a.personalRating));
+        games.sort((a, b) => dir * a.personalRating.compareTo(b.personalRating));
         break;
       case LibrarySortOption.priceDesc:
-        games.sort((a, b) => b.totalSpent.compareTo(a.totalSpent));
+        games.sort((a, b) => dir * a.totalSpent.compareTo(b.totalSpent));
         break;
       case LibrarySortOption.titleAsc:
-        games.sort((a, b) => a.title.toLowerCase().compareTo(b.title.toLowerCase()));
+        games.sort((a, b) => dir * a.title.toLowerCase().compareTo(b.title.toLowerCase()));
         break;
     }
 

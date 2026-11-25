@@ -44,12 +44,12 @@ enum LibraryViewMode {
 }
 
 enum LibrarySortOption {
-  lastUpdated('Recently Updated'),
-  playtimeDesc('Most Played (Hours)'),
-  costPerHourAsc('Best ROI (Cost/Hr)'),
-  ratingDesc('Highest Rated'),
-  priceDesc('Highest Spend'),
-  titleAsc('Alphabetical (A-Z)');
+  lastUpdated('Updated Date'),
+  playtimeDesc('Playtime (Hours)'),
+  costPerHourAsc('ROI (Cost/Hr)'),
+  ratingDesc('Rating'),
+  priceDesc('Spend'),
+  titleAsc('Title');
 
   final String label;
   const LibrarySortOption(this.label);
@@ -64,6 +64,7 @@ class LibraryState {
   final Storefront? storefrontFilter;
   final String searchQuery;
   final LibrarySortOption sortOption;
+  final bool sortAscending;
   final LibraryViewMode viewMode;
 
   const LibraryState({
@@ -72,6 +73,7 @@ class LibraryState {
     this.storefrontFilter,
     this.searchQuery = '',
     this.sortOption = LibrarySortOption.lastUpdated,
+    this.sortAscending = false,
     this.viewMode = LibraryViewMode.grid2,
   });
 
@@ -81,6 +83,7 @@ class LibraryState {
     Storefront? Function()? storefrontFilter,
     String? searchQuery,
     LibrarySortOption? sortOption,
+    bool? sortAscending,
     LibraryViewMode? viewMode,
   }) {
     return LibraryState(
@@ -89,6 +92,7 @@ class LibraryState {
       storefrontFilter: storefrontFilter != null ? storefrontFilter() : this.storefrontFilter,
       searchQuery: searchQuery ?? this.searchQuery,
       sortOption: sortOption ?? this.sortOption,
+      sortAscending: sortAscending ?? this.sortAscending,
       viewMode: viewMode ?? this.viewMode,
     );
   }
@@ -118,28 +122,32 @@ class LibraryState {
     }
 
     // 4. Sorting
+    final dir = sortAscending ? 1 : -1;
     switch (sortOption) {
       case LibrarySortOption.lastUpdated:
-        result.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+        result.sort((a, b) => dir * a.updatedAt.compareTo(b.updatedAt));
         break;
       case LibrarySortOption.playtimeDesc:
-        result.sort((a, b) => b.totalMinutesPlayed.compareTo(a.totalMinutesPlayed));
+        result.sort((a, b) => dir * a.totalMinutesPlayed.compareTo(b.totalMinutesPlayed));
         break;
       case LibrarySortOption.costPerHourAsc:
         result.sort((a, b) {
-          final cpa = a.costPerHour ?? 999999.0;
-          final cpb = b.costPerHour ?? 999999.0;
-          return cpa.compareTo(cpb);
+          final cpa = a.costPerHour;
+          final cpb = b.costPerHour;
+          if (cpa == null && cpb == null) return 0;
+          if (cpa == null) return 1;
+          if (cpb == null) return -1;
+          return dir * cpa.compareTo(cpb);
         });
         break;
       case LibrarySortOption.ratingDesc:
-        result.sort((a, b) => b.personalRating.compareTo(a.personalRating));
+        result.sort((a, b) => dir * a.personalRating.compareTo(b.personalRating));
         break;
       case LibrarySortOption.priceDesc:
-        result.sort((a, b) => b.totalSpent.compareTo(a.totalSpent));
+        result.sort((a, b) => dir * a.totalSpent.compareTo(b.totalSpent));
         break;
       case LibrarySortOption.titleAsc:
-        result.sort((a, b) => a.title.toLowerCase().compareTo(b.title.toLowerCase()));
+        result.sort((a, b) => dir * a.title.toLowerCase().compareTo(b.title.toLowerCase()));
         break;
     }
 

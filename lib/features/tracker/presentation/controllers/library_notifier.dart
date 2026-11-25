@@ -56,7 +56,11 @@ class LibraryNotifier extends StateNotifier<LibraryState> {
   }
 
   void setSortOption(LibrarySortOption option) {
-    state = state.copyWith(sortOption: option);
+    if (state.sortOption == option) {
+      state = state.copyWith(sortAscending: !state.sortAscending);
+    } else {
+      state = state.copyWith(sortOption: option, sortAscending: true);
+    }
   }
 
   void cycleViewMode() {
