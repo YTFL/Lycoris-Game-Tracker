@@ -40,6 +40,7 @@ dependencies:
   package_info_plus: ^10.2.1
   open_filex: ^4.7.0
   path_provider: ^2.1.5
+  share_plus: ^13.3.1
   url_launcher: ^6.3.1
   flutter_markdown: ^0.7.6
 

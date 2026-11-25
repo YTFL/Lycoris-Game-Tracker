@@ -6,6 +6,7 @@ import '../../../tracker/presentation/screens/dossier_screen.dart';
 import '../../domain/models/canonical_game.dart';
 import '../controllers/rankings_notifier.dart';
 import '../controllers/rankings_state.dart';
+import '../services/ranking_share_service.dart';
 import '../widgets/pre_rank_rating_sheet.dart';
 import '../widgets/ranking_comparison_view.dart';
 import '../widgets/ranking_list_tile.dart';
@@ -19,6 +20,29 @@ class RankingsScreen extends ConsumerStatefulWidget {
 }
 
 class _RankingsScreenState extends ConsumerState<RankingsScreen> {
+  bool _isSharing = false;
+
+  Future<void> _handleShareRankings(List<RankedGameItem> rankedList) async {
+    if (_isSharing) return;
+    setState(() => _isSharing = true);
+    try {
+      await RankingShareService.shareRankings(
+        context: context,
+        rankedList: rankedList,
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to share rankings: $e')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isSharing = false);
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -134,6 +158,18 @@ class _RankingsScreenState extends ConsumerState<RankingsScreen> {
           ],
         ),
         actions: [
+          if (state.hasRankings)
+            IconButton(
+              tooltip: 'Share Rankings',
+              onPressed: _isSharing ? null : () => _handleShareRankings(rankedList),
+              icon: _isSharing
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.share_rounded),
+            ),
           if (state.hasRankings)
             PopupMenuButton<String>(
               icon: const Icon(Icons.more_vert_rounded),

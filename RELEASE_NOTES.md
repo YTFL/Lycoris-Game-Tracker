@@ -1,6 +1,6 @@
 # Lycoris Version 1.1.0 Release Notes
 
-**Release Date:** November 23, 2026  
+**Release Date:** November 25, 2026  
 **Milestone:** v1.1.0 Maintenance & UI Polish Release  
 **License:** GNU Affero General Public License v3.0 (AGPL-3.0)  
 
@@ -40,6 +40,8 @@ Lycoris **v1.1.0** is a major feature and refinement release introducing a compl
 - **Playtime & Rating Visibility**:
   - Added formatted playtime (`TimeNormalizer.format`) and user personal star ratings to the Top 5 showcase (Podium slots #1–#3 and sub-tier cards #4–#5).
   - Added personal star ratings to list tiles across all remaining ranks (#6+).
+- **Share Rankings**:
+  - Added a **Share** action to the Rankings `AppBar` that renders the entire rankings page (header, Top 5 showcase, and all remaining ranked games) into a high-resolution PNG image and opens the native share sheet.
 - **Elo Calibration & Matchmaking Fixes**:
   - Fixed premature session termination where "Rank New Games" stopped after 3 comparisons; sessions now run through their full scheduled comparison count.
   - Replaced arbitrary flat 1200.0 baseline ratings with informed Elo seeding from personal ratings ($\text{initialElo} = 800.0 + \text{personalRating} \times 80.0$).
@@ -56,15 +58,22 @@ Lycoris **v1.1.0** is a major feature and refinement release introducing a compl
   - Replaced the legacy 4-card analytics screen with a 4-tab sliding pill interface (`Playtime & Habits`, `Rating & Joy`, `Backlog & Pipeline`, `Superlatives`).
   - **Playtime & Habits**: Surfaced outlier-resistant median playtime alongside arithmetic average, heavy-outlier library share warnings, 5-tier campaign commitment buckets (<5h, 5–20h, 20–50h, 50–100h, 100+h), and genre playtime & satisfaction alignment.
   - **Rating & Joy**: Implemented *The Golden Quadrant* using an adaptive median-based mathematical model dividing games into *Timeless Masterpieces*, *Sweet & Short Gems*, *Time Traps*, and *Early Drops*. Added a Joy-Per-Dollar (Happiness ROI) leaderboard. All games link directly to their dossier.
-  - **Backlog & Pipeline**: Visualized library completion health, status funnel (`Backlog` ➔ `Playing` ➔ `Completed` ➔ `Mastered`), Abandoned Hours & Capital Tax, and a "Play Next" quick-win recommender.
+  - **Backlog & Pipeline**: Visualized library completion health, status funnel (`Backlog` ➔ `Playing` ➔ `Completed` ➔ `Mastered`), Abandoned Hours & Capital Tax, and an ML-based "Play Next" quick-win recommender.
   - **Superlatives & Accolades**: Created the Personal Gaming Hall of Fame with tappable award cards (*The Infinite Value*, *The Black Hole*, *The Money Pit*, *The Golden Freebie*, *The Masterpiece*, *The DLC Collector*).
+
+---
+
+### 5. Bi-Directional Library Sorting
+- **Two-Way Sort Menu**:
+  - Added up/down arrow indicators next to every sort option (`Updated Date`, `Playtime (Hours)`, `ROI (Cost/Hr)`, `Rating`, `Spend`, `Title`).
+  - Selecting a sort option sorts in ascending (up arrow) order, and selecting the active option again toggles to descending (down arrow) order.
 - **Official IGDB DLC Search & Autofill**:
   - Enhanced `IGDBService` with `fetchGameDlcs` to retrieve official expansions and DLCs directly from IGDB.
   - Upgraded the "Add DLC" dialog in `DossierScreen` to `AddDlcDialog`, featuring an interactive carousel of official DLCs with category chips (*Expansion*, *DLC / Addon*, *Season Pass*), release dates, cover art, one-tap title autofill, and instant query filtering.
 
 ---
 
-### 5. Customizable Home Tabs & Custom Categories
+### 6. Customizable Home Tabs & Custom Categories
 - **Full Tab Reordering & Visibility Control**:
   - Reorder home page tabs in any order using drag-and-drop handles. Mix and match status tabs and custom category tabs freely.
   - Toggle visibility to hide or show main status tabs (`All`, `Playing`, `Backlog`, `Completed`, `Mastered`, `Abandoned`, `Wishlist`). Built-in status tabs cannot be deleted, only hidden. A safeguard guarantees at least one tab remains visible.
@@ -72,5 +81,11 @@ Lycoris **v1.1.0** is a major feature and refinement release introducing a compl
   - "Reset to Defaults" option restores standard tab layout while keeping custom categories and game assignments intact.
 - **Dedicated Settings Screen**:
   - Accessible directly under Settings > *Library Tabs & Categories* > *Customize Tabs & Categories*.
+
+---
+
+### 7. Permanent Local Cover Artwork Storage
+- **Offline Cover Caching**:
+  - Cover artworks are now stored permanently in local app storage so game covers remain available offline without repeated network fetches.
 - **Separate Category Option in Game Pages**:
   - Added dedicated Categories multi-select chip controls on the Game Dossier screen, Edit Game modal, Game Intake screen, and Manual Game modal, keeping the status dropdown completely separate and independent.

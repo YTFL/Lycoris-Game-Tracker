@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [Unreleased]
+## [1.1.0] - 2026-11-25
 
 ### Added
 - **Customizable Home Tabs & Reordering**:
@@ -21,12 +21,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Dedicated Category Assignment in Game Screens**:
   - Added a separate, dedicated "Categories" multi-chip selector on the Game Dossier screen, Edit Game modal, Game Intake screen, and Manual Game modal instead of overloading the status dropdown.
   - Deleting a custom category automatically cleans up the category reference across all games in the library.
-
----
-
-## [1.1.0] - 2026-11-23
-
-### Added
+- **Permanent Local Cover Artwork Storage**:
+  - Stored game cover artworks permanently in local app storage for reliable offline display.
+- **Bi-Directional Library Sorting**:
+  - Added up/down arrow indicators next to each option in the library sort menu (`Updated Date`, `Playtime (Hours)`, `ROI (Cost/Hr)`, `Rating`, `Spend`, `Title`).
+  - Clicking a sort option once sorts in ascending (up arrow) order; clicking the currently active option again toggles to descending (down arrow) order.
 - **Analytics Dashboard Redesign (Tabbed Intelligence Engine)**:
   - Overhauled analytics into a modular 4-tab sliding pill interface (`Playtime & Habits`, `Rating & Joy`, `Backlog & Pipeline`, `Superlatives`).
   - **Playtime & Habits**: Added median vs. average playtime with outlier distortion indicator, 5-tier campaign commitment buckets (<5h, 5–20h, 20–50h, 50–100h, 100+h), and genre playtime & satisfaction alignment.
@@ -37,6 +36,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Added `fetchGameDlcs` in `IGDBService` querying official DLCs and expansions (`parent_game = igdbId` with fallback to parent entity arrays).
   - Built `AddDlcDialog` on the Game Dossier screen featuring an official DLC suggestion carousel with category tags (*Expansion*, *DLC / Addon*, *Season Pass*), release dates, cover art, one-tap title autofill, and instant search filtering.
 - **Game Rankings Enhancements**:
+  - **Share Rankings**: Added a Share action to the Rankings `AppBar` that captures the full rankings page (Top 5 showcase and all remaining ranked games) as a high-resolution PNG image and opens the native share sheet.
   - Displayed playtime (`TimeNormalizer.format`) and user personal star rating in the Top 5 podium slots (#1–#3) and sub-tier cards (#4–#5).
   - Displayed personal star ratings on list tiles across all remaining ranks (#6+).
   - Introduced `PreRankRatingSheet`: a mandatory pre-ranking rating flow that prompts users to rate any unrated completed games before comparison sessions begin, establishing an accurate baseline.
